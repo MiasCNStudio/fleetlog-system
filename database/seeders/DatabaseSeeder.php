@@ -1,0 +1,29 @@
+<?php
+
+namespace Database\Seeders;
+
+use App\Models\User;
+use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+use Illuminate\Database\Seeder;
+
+class DatabaseSeeder extends Seeder
+{
+    use WithoutModelEvents;
+
+    /**
+     * Seed the application's database.
+     */
+    public function run(): void
+    {
+        User::query()->updateOrCreate(
+            ['email' => 'admin@fleetlog.test'],
+            [
+                'name' => 'Administrador Fleetlog',
+                'password' => 'password',
+                'person_type' => 'funcionario',
+                'driver_code' => null,
+                'email_verified_at' => now(),
+            ],
+        );
+    }
+}
