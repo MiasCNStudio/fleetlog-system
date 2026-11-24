@@ -30,6 +30,15 @@ class StoreBitacoraRequest extends FormRequest
             'companions' => ['nullable', 'string', 'max:2000'],
             'official_instruction' => ['nullable', 'string', 'max:2000'],
             'notes' => ['nullable', 'string', 'max:2000'],
+            'device_uuid' => ['nullable', 'string', 'max:128'],
+            'device_name' => ['nullable', 'string', 'max:120'],
+            'device_platform' => ['nullable', 'string', 'max:40'],
+            'initial_latitude' => ['nullable', 'numeric', 'between:-90,90'],
+            'initial_longitude' => ['nullable', 'numeric', 'between:-180,180'],
+            'initial_accuracy_m' => ['nullable', 'numeric', 'min:0'],
+            'final_latitude' => ['nullable', 'numeric', 'between:-90,90'],
+            'final_longitude' => ['nullable', 'numeric', 'between:-180,180'],
+            'battery_level' => ['nullable', 'integer', 'between:0,100'],
         ];
     }
 }

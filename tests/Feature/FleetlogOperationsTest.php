@@ -275,4 +275,132 @@ class FleetlogOperationsTest extends TestCase
         $this->assertContains('personal_trip', $actions);
         $this->assertContains('unplanned_trip', $actions);
     }
+
+    public function test_device_bound_mission_tracking_sos_and_final_route_summary(): void
+    {
+        $dispatcher = User::factory()->create(['role' => User::ROLE_DISPATCHER]);
+        $driver = User::factory()->create(['role' => User::ROLE_DRIVER, 'driver_code' => 'M-30']);
+
+        $vehicle = Vehicle::query()->create([
+            'license_plate' => 'P-99001',
+            'brand' => 'Toyota',
+            'model' => 'Hiace',
+            'year' => 2024,
+            'status' => Vehicle::STATUS_AVAILABLE,
+            'current_odometer' => 5000,
+        ]);
+
+        $this->travel(-20)->minutes();
+
+        // Motorista inicia viaje personal desde un celular específico
+        $salidaResp = $this->actingAs($driver)->postJson('/api/bitacoras', [
+            'vehicle_id' => $vehicle->id,
+            'trip_category' => 'personal',
+            'destination' => 'Centro Histórico',
+            'odometer_km' => 5000,
+            'device_uuid' => 'android-juan-001',
+            'device_name' => 'Samsung Galaxy A54',
+            'device_platform' => 'android',
+            'initial_latitude' => 13.6978,
+            'initial_longitude' => -89.1914,
+            'battery_level' => 88,
+        ])->assertCreated();
+
+        $sessionId = $salidaResp->json('tracking_session.id');
+        $this->assertNotNull($sessionId);
+        $this->assertSame('android-juan-001', $salidaResp->json('tracking_session.device_uuid'));
+
+        // Motorista consulta su propia misión activa
+        $this->actingAs($driver)
+            ->getJson('/api/tracking/my-active')
+            ->assertOk()
+            ->assertJsonPath('data.id', $sessionId);
+
+        // Otro celular con la misma cuenta NO puede reportar ni suplantar esta misión
+        $this->actingAs($driver)->postJson("/api/tracking/sessions/{$sessionId}/points", [
+            'device_uuid' => 'android-intruso-999',
+            'device_name' => 'Otro Telefono',
+            'latitude' => 13.7050,
+            'longitude' => -89.2100,
+        ])->assertForbidden();
+
+        // El celular original envía lote de puntos con una parada (>= 3 min en mismo radio) y desplazamiento
+        $t0 = now()->addMinutes(3);
+        $this->actingAs($driver)->postJson("/api/tracking/sessions/{$sessionId}/points", [
+            'device_uuid' => 'android-juan-001',
+            'device_name' => 'Samsung Galaxy A54',
+            'points' => [
+                [
+                    'latitude' => 13.7010,
+                    'longitude' => -89.2050,
+                    'speed_kmh' => 42.5,
+                    'battery_level' => 86,
+                    'recorded_at' => $t0->toIso8601String(),
+                ],
+                [
+                    'latitude' => 13.7011,
+                    'longitude' => -89.2051,
+                    'speed_kmh' => 0,
+                    'is_moving' => false,
+                    'battery_level' => 85,
+                    'recorded_at' => $t0->copy()->addMinutes(5)->toIso8601String(),
+                ],
+                [
+                    'latitude' => 13.7120,
+                    'longitude' => -89.2250,
+                    'speed_kmh' => 54.0,
+                    'battery_level' => 83,
+                    'recorded_at' => $t0->copy()->addMinutes(10)->toIso8601String(),
+                ],
+            ],
+        ])->assertOk()->assertJsonPath('added', 3);
+
+        $this->travel(15)->minutes();
+
+        // Botón de alerta SOS desde el mismo celular
+        $this->actingAs($driver)->postJson("/api/tracking/sessions/{$sessionId}/sos", [
+            'device_uuid' => 'android-juan-001',
+            'device_name' => 'Samsung Galaxy A54',
+            'latitude' => 13.7122,
+            'longitude' => -89.2252,
+            'battery_level' => 82,
+            'message' => 'Emergencia en carretera',
+        ])->assertOk()->assertJsonPath('session.has_sos_alert', true);
+
+        $this->travel(5)->minutes();
+
+        // Regreso cierra la misión y genera el resumen final con distancia, paradas y enlace Google Maps
+        $this->actingAs($driver)->postJson('/api/bitacoras', [
+            'vehicle_id' => $vehicle->id,
+            'odometer_km' => 5012,
+            'device_uuid' => 'android-juan-001',
+            'final_latitude' => 13.6980,
+            'final_longitude' => -89.1916,
+            'notes' => 'Regreso sin daños',
+        ])->assertCreated()->assertJsonPath('type', 'regreso');
+
+        // Motorista NO puede listar sesiones globales ni acceder a resumen administrativo
+        $this->actingAs($driver)->getJson('/api/tracking/sessions')->assertForbidden();
+        $this->actingAs($driver)->getJson("/api/tracking/sessions/{$sessionId}")->assertForbidden();
+
+        // Jefe de motoristas SÍ consulta el resumen completo en mapa
+        $detail = $this->actingAs($dispatcher)
+            ->getJson("/api/tracking/sessions/{$sessionId}")
+            ->assertOk();
+
+        $detail->assertJsonPath('session.status', 'finalizada');
+        $detail->assertJsonPath('session.declared_distance_km', 12);
+        $detail->assertJsonPath('session.has_sos_alert', true);
+        $detail->assertJsonPath('summary.device.device_uuid', 'android-juan-001');
+        $detail->assertJsonPath('summary.stops.0.duration_minutes', 5);
+        $this->assertStringContainsString('https://www.google.com/maps/', (string) $detail->json('summary.google_maps_route_url'));
+        $this->assertGreaterThanOrEqual(5, count($detail->json('points')));
+
+        // Auditoría registró tanto el intento de dispositivo distinto como el SOS
+        $logsResp = $this->actingAs($dispatcher)->getJson('/api/system-logs?module=tracking')->assertOk();
+        $actions = collect($logsResp->json('data'))->pluck('action')->all();
+        $this->assertContains('device_mismatch', $actions);
+        $this->assertContains('sos_alert', $actions);
+        $this->assertContains('session_finished', $actions);
+    }
 }

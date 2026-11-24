@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Bitacora extends Model
 {
@@ -79,5 +80,15 @@ class Bitacora extends Model
     public function assignment(): BelongsTo
     {
         return $this->belongsTo(Assignment::class);
+    }
+
+    public function trackingSession(): HasOne
+    {
+        return $this->hasOne(TripTrackingSession::class, 'salida_bitacora_id');
+    }
+
+    public function regresoTrackingSession(): HasOne
+    {
+        return $this->hasOne(TripTrackingSession::class, 'regreso_bitacora_id');
     }
 }

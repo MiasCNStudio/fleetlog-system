@@ -9,6 +9,7 @@ use App\Models\Assignment;
 use App\Models\Bitacora;
 use App\Models\Vehicle;
 use App\Services\SystemLogger;
+use App\Services\TripTrackingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -16,6 +17,8 @@ use Illuminate\Validation\ValidationException;
 
 class BitacoraController extends Controller
 {
+    public function __construct(private readonly TripTrackingService $tracking) {}
+
     private function relations(): array
     {
         return [
@@ -24,6 +27,8 @@ class BitacoraController extends Controller
             'driver:id,name,driver_code',
             'assignment:id,scheduled_date,scheduled_time,driver_id,original_driver_id,is_emergency_reassigned,reassignment_reason,official_instruction,description,status',
             'assignment.originalDriver:id,name,driver_code',
+            'trackingSession:id,salida_bitacora_id,regreso_bitacora_id,status,device_name,device_uuid,device_platform,gps_distance_km,declared_distance_km,points_count,stops_count,has_sos_alert,started_at,ended_at,last_ping_at,last_latitude,last_longitude,last_battery_level',
+            'regresoTrackingSession:id,salida_bitacora_id,regreso_bitacora_id,status,device_name,device_uuid,device_platform,gps_distance_km,declared_distance_km,points_count,stops_count,has_sos_alert,started_at,ended_at,last_ping_at,last_latitude,last_longitude,last_battery_level',
         ];
     }
 
@@ -111,6 +116,7 @@ class BitacoraController extends Controller
             }
 
             $tripCategory = $data['trip_category'] ?? null;
+            $lastSalida = null;
 
             if ($type === Bitacora::TYPE_SALIDA) {
                 if ($assignment) {
@@ -290,6 +296,12 @@ class BitacoraController extends Controller
                 ],
                 $request,
             );
+
+            if ($type === Bitacora::TYPE_SALIDA) {
+                $this->tracking->startForSalida($created, $authUser, $data, $request);
+            } else {
+                $this->tracking->finishForRegreso($created, $lastSalida, $authUser, $data, $request);
+            }
 
             return $created;
         });

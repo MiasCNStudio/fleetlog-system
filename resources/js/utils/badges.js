@@ -159,6 +159,28 @@ export const LOG_MODULE_META = {
     label: 'Usuarios',
     badge: 'bg-purple-500/15 text-purple-700 ring-1 ring-inset ring-purple-500/20 dark:bg-purple-500/15 dark:text-purple-300 dark:ring-purple-400/25',
   },
+  tracking: {
+    label: 'Rastreo GPS',
+    badge: 'bg-teal-500/15 text-teal-700 ring-1 ring-inset ring-teal-500/20 dark:bg-teal-500/15 dark:text-teal-300 dark:ring-teal-400/25',
+  },
+};
+
+export const TRACKING_STATUS_META = {
+  activa: {
+    label: 'En misión',
+    badge: 'bg-emerald-500/15 text-emerald-700 ring-1 ring-inset ring-emerald-500/20 dark:bg-emerald-500/15 dark:text-emerald-300 dark:ring-emerald-400/20',
+    dot: 'bg-emerald-500',
+  },
+  finalizada: {
+    label: 'Finalizada',
+    badge: 'bg-brand-50 text-brand-700 ring-1 ring-inset ring-brand-500/20 dark:bg-brand-500/15 dark:text-brand-300 dark:ring-brand-400/25',
+    dot: 'bg-brand-500',
+  },
+  interrumpida: {
+    label: 'Interrumpida',
+    badge: 'bg-rose-500/15 text-rose-700 ring-1 ring-inset ring-rose-500/20 dark:bg-rose-500/15 dark:text-rose-300 dark:ring-rose-400/25',
+    dot: 'bg-rose-500',
+  },
 };
 
 export const LOG_ACTION_META = {
@@ -193,5 +215,25 @@ export const LOG_ACTION_META = {
   logout: {
     label: 'Salida',
     badge: 'bg-gray-100 text-gray-600 ring-1 ring-inset ring-gray-300/70 dark:bg-gray-800 dark:text-gray-400 dark:ring-gray-700',
+  },
+  session_started: {
+    label: 'Inicio rastreo',
+    badge: 'bg-teal-500/15 text-teal-700 ring-1 ring-inset ring-teal-500/20 dark:bg-teal-500/15 dark:text-teal-300 dark:ring-teal-400/25',
+  },
+  session_finished: {
+    label: 'Fin rastreo',
+    badge: 'bg-brand-50 text-brand-700 ring-1 ring-inset ring-brand-500/20 dark:bg-brand-500/15 dark:text-brand-300 dark:ring-brand-400/25',
+  },
+  device_bound: {
+    label: 'Celular vinculado',
+    badge: 'bg-sky-500/15 text-sky-700 ring-1 ring-inset ring-sky-500/20 dark:bg-sky-500/15 dark:text-sky-300 dark:ring-sky-400/25',
+  },
+  device_mismatch: {
+    label: 'Dispositivo distinto',
+    badge: 'bg-rose-600/20 text-rose-800 ring-1 ring-inset ring-rose-600/25 dark:bg-rose-500/20 dark:text-rose-300 dark:ring-rose-400/30',
+  },
+  sos_alert: {
+    label: 'Alerta SOS',
+    badge: 'bg-rose-600/20 text-rose-800 ring-1 ring-inset ring-rose-600/25 dark:bg-rose-500/20 dark:text-rose-300 dark:ring-rose-400/30',
   },
 };

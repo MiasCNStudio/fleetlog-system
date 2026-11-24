@@ -30,6 +30,7 @@
             <option value="">Todos</option>
             <option value="assignments">Asignaciones</option>
             <option value="bitacoras">Bitácora</option>
+            <option value="tracking">Rastreo GPS</option>
             <option value="vehicles">Vehículos</option>
             <option value="incidents">Incidencias</option>
             <option value="users">Usuarios</option>
@@ -46,6 +47,8 @@
             <option value="emergency_reassigned">Emergencia</option>
             <option value="personal_trip">Viaje personal</option>
             <option value="unplanned_trip">Imprevisto</option>
+            <option value="sos_alert">Alerta SOS</option>
+            <option value="device_mismatch">Dispositivo distinto</option>
             <option value="login">Ingreso</option>
           </select>
         </div>

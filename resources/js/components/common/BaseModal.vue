@@ -66,6 +66,7 @@ const titleId = useId();
 const maxWidthClass = computed(() => {
   if (props.maxWidth === 'md') return 'max-w-md';
   if (props.maxWidth === 'xl') return 'max-w-2xl';
+  if (props.maxWidth === '2xl') return 'max-w-4xl';
   return 'max-w-lg';
 });
 

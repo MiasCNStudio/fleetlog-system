@@ -434,6 +434,10 @@
               <span>Agenda y asignaciones</span>
               <span>→</span>
             </router-link>
+            <router-link to="/rastreo" class="fleet-btn-secondary group h-10 w-full justify-between px-3.5">
+              <span>Rastreo GPS en vivo</span>
+              <span>→</span>
+            </router-link>
             <router-link to="/bitacora-sistema" class="fleet-btn-secondary group h-10 w-full justify-between px-3.5">
               <span>Bitácora del sistema</span>
               <span>→</span>
@@ -457,8 +461,8 @@
                 {{ activeTrips.length }}
               </span>
             </div>
-            <router-link to="/bitacora" class="text-theme-xs font-semibold text-brand-600 hover:underline dark:text-brand-400">
-              Ver bitácora →
+            <router-link to="/rastreo" class="text-theme-xs font-semibold text-brand-600 hover:underline dark:text-brand-400">
+              Ver rastreo →
             </router-link>
           </div>
 

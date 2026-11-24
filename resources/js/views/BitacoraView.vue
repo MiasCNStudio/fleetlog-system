@@ -610,6 +610,27 @@
             {{ detailItem.companions || '—' }}
           </p>
         </div>
+
+        <div
+          v-if="canManageFleet && activeDetailTracking"
+          class="flex flex-col gap-3 rounded-xl border border-brand-200/80 bg-brand-50/60 p-3.5 dark:border-brand-500/25 dark:bg-brand-500/10 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div class="min-w-0 space-y-0.5 text-theme-xs">
+            <p class="font-semibold text-brand-900 dark:text-brand-200">
+              Rastreo GPS ({{ activeDetailTracking.device_name }})
+            </p>
+            <p class="text-brand-800/80 dark:text-brand-200/80">
+              {{ activeDetailTracking.gps_distance_km }} km GPS · {{ activeDetailTracking.points_count }} puntos · {{ activeDetailTracking.stops_count || 0 }} paradas
+            </p>
+          </div>
+          <button
+            type="button"
+            class="fleet-btn-primary h-9 shrink-0 px-3.5 py-1.5 text-theme-xs"
+            @click="detailOpen = false; openRouteModal(activeDetailTracking.id)"
+          >
+            Ver ruta y resumen
+          </button>
+        </div>
       </div>
 
       <template #footer>
@@ -634,6 +655,12 @@
         </button>
       </template>
     </BaseModal>
+
+    <TripRouteMapModal
+      :open="routeModalOpen"
+      :session-id="routeSessionId"
+      @close="routeModalOpen = false"
+    />
   </AdminLayout>
 </template>
 
@@ -648,6 +675,7 @@ import StatusBadge from '@/components/common/StatusBadge.vue';
 import TableEmptyState from '@/components/common/TableEmptyState.vue';
 import TablePagination from '@/components/common/TablePagination.vue';
 import TableRowActions from '@/components/common/TableRowActions.vue';
+import TripRouteMapModal from '@/components/common/TripRouteMapModal.vue';
 import { useAuth } from '../composables/useAuth';
 import {
   confirmDeleteDialog,
@@ -672,6 +700,8 @@ const filterCategory = ref('');
 const modalOpen = ref(false);
 const detailOpen = ref(false);
 const detailItem = ref(null);
+const routeModalOpen = ref(false);
+const routeSessionId = ref(null);
 const editingId = ref(null);
 const createMode = ref('asignacion');
 const nextType = ref(null);
@@ -695,6 +725,15 @@ const form = reactive({
 });
 
 const hasFilters = computed(() => Boolean(filterVehicleId.value || filterType.value || filterCategory.value));
+
+const activeDetailTracking = computed(
+  () => detailItem.value?.tracking_session || detailItem.value?.regreso_tracking_session || null,
+);
+
+const openRouteModal = (sessionId) => {
+  routeSessionId.value = sessionId;
+  routeModalOpen.value = true;
+};
 
 const selectedAssignment = computed(() =>
   assignmentOptions.value.find((a) => String(a.id) === String(form.assignment_id)) || null,

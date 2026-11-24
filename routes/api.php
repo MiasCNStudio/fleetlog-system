@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\IncidentController;
 use App\Http\Controllers\Api\PlaceController;
 use App\Http\Controllers\Api\SystemLogController;
+use App\Http\Controllers\Api\TripTrackingController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\VehicleController;
 use Illuminate\Support\Facades\Route;
@@ -79,4 +80,15 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Bitácora del sistema (auditoría): solo admin y jefe de motoristas (despachador)
     Route::get('system-logs', [SystemLogController::class, 'index'])->middleware('role:admin,despachador');
+
+    // Rastreo GPS de misiones y resumen final de ruta
+    Route::get('tracking/my-active', [TripTrackingController::class, 'myActive']);
+    Route::post('tracking/sessions/start', [TripTrackingController::class, 'start']);
+    Route::post('tracking/sessions/{session}/points', [TripTrackingController::class, 'storePoints']);
+    Route::post('tracking/sessions/{session}/sos', [TripTrackingController::class, 'sos']);
+    Route::middleware('role:admin,despachador')->group(function () {
+        Route::get('tracking/sessions', [TripTrackingController::class, 'index']);
+        Route::get('tracking/sessions/active', [TripTrackingController::class, 'active']);
+        Route::get('tracking/sessions/{session}', [TripTrackingController::class, 'show']);
+    });
 });

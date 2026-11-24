@@ -18,6 +18,7 @@ import {
   INCIDENT_STATUS_META,
   LOG_ACTION_META,
   LOG_MODULE_META,
+  TRACKING_STATUS_META,
   USER_ROLE_META,
   USER_TYPE_META,
   VEHICLE_STATUS_META,
@@ -39,6 +40,7 @@ const maps = {
   userType: USER_TYPE_META,
   logModule: LOG_MODULE_META,
   logAction: LOG_ACTION_META,
+  trackingStatus: TRACKING_STATUS_META,
 };
 
 const resolved = computed(() => {

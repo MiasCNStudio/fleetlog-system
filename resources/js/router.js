@@ -7,6 +7,7 @@ import VehiclesView from './views/VehiclesView.vue';
 import BitacoraView from './views/BitacoraView.vue';
 import IncidentsView from './views/IncidentsView.vue';
 import SystemLogsView from './views/SystemLogsView.vue';
+import TrackingView from './views/TrackingView.vue';
 
 const routes = [
   { path: '/login', name: 'login', component: LoginView },
@@ -21,6 +22,12 @@ const routes = [
     path: '/bitacora-sistema',
     name: 'system-logs',
     component: SystemLogsView,
+    meta: { requiresAuth: true, requiresFleetManager: true },
+  },
+  {
+    path: '/rastreo',
+    name: 'tracking',
+    component: TrackingView,
     meta: { requiresAuth: true, requiresFleetManager: true },
   },
 ];
