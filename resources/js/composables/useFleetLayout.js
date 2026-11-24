@@ -1,9 +1,11 @@
 import { inject, provide, ref } from 'vue';
 
 const FleetLayoutKey = Symbol('fleetLayout');
+const SIDEBAR_STORAGE_KEY = 'fleetlog_sidebar_collapsed';
 
 export function provideFleetLayout() {
   const isMobileOpen = ref(false);
+  const isDesktopCollapsed = ref(localStorage.getItem(SIDEBAR_STORAGE_KEY) === '1');
 
   const toggleMobile = () => {
     isMobileOpen.value = !isMobileOpen.value;
@@ -13,7 +15,22 @@ export function provideFleetLayout() {
     isMobileOpen.value = false;
   };
 
-  const ctx = { isMobileOpen, toggleMobile, closeMobile };
+  const toggleDesktopCollapsed = () => {
+    isDesktopCollapsed.value = !isDesktopCollapsed.value;
+    try {
+      localStorage.setItem(SIDEBAR_STORAGE_KEY, isDesktopCollapsed.value ? '1' : '0');
+    } catch (_) {
+      /* sin acceso a almacenamiento */
+    }
+  };
+
+  const ctx = {
+    isMobileOpen,
+    isDesktopCollapsed,
+    toggleMobile,
+    closeMobile,
+    toggleDesktopCollapsed,
+  };
   provide(FleetLayoutKey, ctx);
 
   return ctx;

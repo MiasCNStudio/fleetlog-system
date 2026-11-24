@@ -1,64 +1,136 @@
 <template>
   <aside
+    aria-label="Navegación principal"
     :class="[
-      'group/sidebar fixed left-0 top-0 z-[99999] flex h-screen flex-col overflow-hidden border-r border-white/10 bg-[#1c2434] text-white shadow-[4px_0_24px_rgba(0,0,0,0.12)] transition-[width,transform] duration-300 ease-out',
-      'w-[min(100vw,280px)] lg:w-[72px] lg:hover:w-[280px] lg:[@media(hover:none)]:w-[280px]',
+      'fixed left-0 top-0 z-50 flex h-screen flex-col border-r border-white/[0.08] bg-gradient-to-b from-[#131c31] via-[#0f172a] to-[#0b1120] text-white shadow-2xl transition-[width,transform] duration-300 ease-out lg:shadow-none',
+      'w-72 max-w-[85vw]',
+      isDesktopCollapsed ? 'lg:w-[76px]' : 'lg:w-64',
       isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
     ]"
   >
-    <div class="flex h-16 shrink-0 items-center border-b border-white/10">
+    <div
+      :class="[
+        'flex h-16 shrink-0 items-center border-b border-white/[0.07] px-3',
+        isDesktopCollapsed ? 'lg:justify-center' : 'justify-between',
+      ]"
+    >
       <router-link
         to="/dashboard"
-        class="grid min-h-[4rem] w-full min-w-0 grid-cols-[72px_minmax(0,1fr)] items-center gap-0 hover:bg-white/5"
+        :class="[
+          'flex min-w-0 items-center gap-3 rounded-xl p-1.5 transition-colors hover:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400',
+          isDesktopCollapsed ? 'lg:justify-center' : '',
+        ]"
         @click="closeMobile"
       >
         <span
-          class="flex size-10 shrink-0 items-center justify-center justify-self-center rounded-lg bg-brand-500 text-sm font-bold text-white shadow-sm"
+          class="flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-400 to-brand-600 text-sm font-bold text-white shadow-[0_2px_10px_rgba(70,95,255,0.45)] ring-1 ring-white/20"
         >
           F
         </span>
         <span
-          class="truncate pr-4 text-base font-semibold tracking-tight text-white/95 transition-opacity duration-200 lg:opacity-0 lg:group-hover/sidebar:opacity-100 lg:[@media(hover:none)]:opacity-100"
+          :class="[
+            'min-w-0 truncate',
+            isDesktopCollapsed ? 'lg:hidden' : '',
+          ]"
         >
-          Fleetlog
+          <span class="block truncate text-base font-semibold tracking-tight text-white">Fleetlog</span>
+          <span class="block truncate text-[11px] font-normal text-slate-400">Control de flotilla</span>
         </span>
       </router-link>
+
+      <button
+        type="button"
+        class="inline-flex size-9 shrink-0 items-center justify-center rounded-xl text-slate-300 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 lg:hidden"
+        aria-label="Cerrar menú"
+        @click="closeMobile"
+      >
+        <svg class="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
     </div>
 
     <div class="px-3 pb-2 pt-4">
       <p
-        class="pl-2 text-[11px] font-semibold uppercase tracking-wider text-white/40 transition-opacity duration-200 lg:opacity-0 lg:group-hover/sidebar:opacity-100 lg:[@media(hover:none)]:opacity-100"
+        :class="[
+          'px-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400/90',
+          isDesktopCollapsed ? 'lg:hidden' : '',
+        ]"
       >
-        Menú
+        Operación
       </p>
+      <div
+        v-if="isDesktopCollapsed"
+        class="hidden border-t border-white/[0.08] lg:block"
+        aria-hidden="true"
+      />
     </div>
 
-    <nav class="flex flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden px-2 pb-6">
+    <nav class="flex flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden px-3 pb-4">
       <router-link
         v-for="item in visibleItems"
         :key="item.to"
         :to="item.to"
-        :title="item.label"
-        class="flex min-h-[2.75rem] w-full min-w-0 items-center rounded-lg text-theme-sm font-medium transition-colors"
-        :class="
+        :title="isDesktopCollapsed ? item.label : undefined"
+        :aria-current="isActive(item.to) ? 'page' : undefined"
+        :class="[
+          'group relative flex min-h-[2.75rem] items-center rounded-xl text-theme-sm font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400',
+          isDesktopCollapsed ? 'gap-3 px-3 lg:justify-center lg:px-0' : 'gap-3 px-3',
           isActive(item.to)
-            ? 'bg-white/10 text-brand-300'
-            : 'text-white/80 hover:bg-white/5 hover:text-white'
-        "
+            ? 'bg-gradient-to-r from-brand-500/25 to-brand-500/10 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] ring-1 ring-inset ring-brand-400/30'
+            : 'text-slate-300 hover:bg-white/[0.06] hover:text-white',
+        ]"
         @click="closeMobile"
       >
-        <span class="grid w-full min-w-0 grid-cols-[72px_minmax(0,1fr)] items-center">
-          <span class="flex size-9 items-center justify-center justify-self-center text-current [&>svg]:size-5">
-            <component :is="item.icon" />
-          </span>
-          <span
-            class="truncate pr-3 text-left transition-opacity duration-200 lg:opacity-0 lg:group-hover/sidebar:opacity-100 lg:[@media(hover:none)]:opacity-100"
-          >
-            {{ item.label }}
-          </span>
+        <span
+          v-if="isActive(item.to) && !isDesktopCollapsed"
+          class="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-brand-400"
+          aria-hidden="true"
+        />
+        <span
+          :class="[
+            'flex size-6 shrink-0 items-center justify-center transition-colors [&>svg]:size-5',
+            isActive(item.to) ? 'text-brand-300' : 'text-slate-400 group-hover:text-white',
+          ]"
+        >
+          <component :is="item.icon" />
+        </span>
+        <span
+          :class="[
+            'truncate',
+            isDesktopCollapsed ? 'lg:hidden' : '',
+          ]"
+        >
+          {{ item.label }}
         </span>
       </router-link>
     </nav>
+
+    <div class="hidden border-t border-white/[0.07] p-3 lg:block">
+      <button
+        type="button"
+        :title="isDesktopCollapsed ? 'Expandir menú' : 'Contraer menú'"
+        :aria-label="isDesktopCollapsed ? 'Expandir menú lateral' : 'Contraer menú lateral'"
+        :aria-expanded="!isDesktopCollapsed"
+        :class="[
+          'flex h-10 w-full items-center rounded-xl text-theme-xs font-medium text-slate-300 transition-colors hover:bg-white/[0.08] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400',
+          isDesktopCollapsed ? 'justify-center px-0' : 'justify-between px-3',
+        ]"
+        @click="toggleDesktopCollapsed"
+      >
+        <span v-if="!isDesktopCollapsed" class="truncate">Contraer menú</span>
+        <svg
+          :class="['size-4 shrink-0 transition-transform duration-200', isDesktopCollapsed ? 'rotate-180' : '']"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          stroke-width="1.8"
+          aria-hidden="true"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" d="M18.75 19.5l-7.5-7.5 7.5-7.5m-6 15L5.25 12l7.5-7.5" />
+        </svg>
+      </button>
+    </div>
   </aside>
 </template>
 
@@ -69,14 +141,14 @@ import { useFleetLayout } from '@/composables/useFleetLayout.js';
 import { useAuth } from '@/composables/useAuth.js';
 
 const route = useRoute();
-const { closeMobile, isMobileOpen } = useFleetLayout();
+const { closeMobile, isMobileOpen, isDesktopCollapsed, toggleDesktopCollapsed } = useFleetLayout();
 const { isAdmin } = useAuth();
 
 const IconDashboard = {
   render() {
     return h(
       'svg',
-      { fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor', 'stroke-width': '1.75' },
+      { fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor', 'stroke-width': '1.75', 'aria-hidden': 'true' },
       [
         h('path', {
           'stroke-linecap': 'round',
@@ -92,7 +164,7 @@ const IconUsers = {
   render() {
     return h(
       'svg',
-      { fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor', 'stroke-width': '1.75' },
+      { fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor', 'stroke-width': '1.75', 'aria-hidden': 'true' },
       [
         h('path', {
           'stroke-linecap': 'round',
@@ -108,7 +180,7 @@ const IconTruck = {
   render() {
     return h(
       'svg',
-      { fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor', 'stroke-width': '1.75' },
+      { fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor', 'stroke-width': '1.75', 'aria-hidden': 'true' },
       [
         h('path', {
           'stroke-linecap': 'round',
@@ -129,7 +201,7 @@ const IconClipboard = {
   render() {
     return h(
       'svg',
-      { fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor', 'stroke-width': '1.75' },
+      { fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor', 'stroke-width': '1.75', 'aria-hidden': 'true' },
       [
         h('path', {
           'stroke-linecap': 'round',
@@ -145,7 +217,7 @@ const IconAlert = {
   render() {
     return h(
       'svg',
-      { fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor', 'stroke-width': '1.75' },
+      { fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor', 'stroke-width': '1.75', 'aria-hidden': 'true' },
       [
         h('path', {
           'stroke-linecap': 'round',

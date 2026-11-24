@@ -1,37 +1,45 @@
 <template>
-  <AdminLayout header-title="Bitácora" :user-name="currentUser?.name" @logout="logout">
+  <AdminLayout header-title="Bitácora" :user-name="currentUser?.name" @logout="logout(true)">
     <PageBreadcrumb page-title="Bitácora" subtitle="Registro de salidas, regresos, odómetro y combustible.">
       <template #actions>
-        <button
-          type="button"
-          class="rounded-lg bg-brand-500 px-4 py-2 text-theme-sm font-medium text-white hover:bg-brand-600"
-          @click="openCreate"
-        >
+        <button type="button" class="fleet-btn-primary" @click="openCreate">
+          <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+          </svg>
           Nueva bitácora
         </button>
       </template>
     </PageBreadcrumb>
 
     <ComponentCard title="Movimientos" desc="Salida y regreso según el último registro de cada vehículo.">
-      <div class="mb-4 flex flex-wrap items-end gap-3">
-        <div>
-          <label class="mb-1 block text-theme-xs font-medium text-gray-600 dark:text-gray-400">Filtrar por vehículo</label>
+      <template #header-extra>
+        <span class="rounded-lg bg-gray-100 px-2.5 py-1 text-theme-xs font-semibold tabular-nums text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+          {{ meta.total }} {{ meta.total === 1 ? 'registro' : 'registros' }}
+        </span>
+      </template>
+
+      <div class="fleet-filter-bar grid grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:items-end">
+        <div class="w-full sm:w-64">
+          <label for="bitacora-filter-vehicle" class="fleet-label">Vehículo</label>
           <select
+            id="bitacora-filter-vehicle"
             v-model="filterVehicleId"
-            class="rounded-lg border border-gray-200 px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+            class="fleet-select"
             @change="loadBitacoras(1)"
           >
-            <option value="">Todos</option>
+            <option value="">Todos los vehículos</option>
             <option v-for="v in vehicleOptions" :key="v.id" :value="String(v.id)">
               {{ v.license_plate }} — {{ v.brand }} {{ v.model }}
             </option>
           </select>
         </div>
-        <div>
-          <label class="mb-1 block text-theme-xs font-medium text-gray-600 dark:text-gray-400">Tipo</label>
+
+        <div class="w-full sm:w-44">
+          <label for="bitacora-filter-type" class="fleet-label">Tipo</label>
           <select
+            id="bitacora-filter-type"
             v-model="filterType"
-            class="rounded-lg border border-gray-200 px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+            class="fleet-select"
             @change="loadBitacoras(1)"
           >
             <option value="">Todos</option>
@@ -39,67 +47,79 @@
             <option value="regreso">Regresos</option>
           </select>
         </div>
+
+        <button
+          v-if="hasFilters"
+          type="button"
+          class="fleet-btn-secondary h-10 px-3.5 text-theme-xs"
+          @click="resetFilters"
+        >
+          Limpiar filtros
+        </button>
       </div>
 
-      <div class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+      <div class="fleet-table-wrap">
         <div class="max-w-full overflow-x-auto">
-          <table class="min-w-full">
+          <table class="w-full divide-y divide-gray-200 dark:divide-gray-800">
             <thead>
-              <tr class="border-b border-gray-200 dark:border-gray-700">
-                <th class="px-5 py-3 text-left sm:px-6">
-                  <p class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Fecha y hora</p>
-                </th>
-                <th class="px-5 py-3 text-left sm:px-6">
-                  <p class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Tipo</p>
-                </th>
-                <th class="px-5 py-3 text-left sm:px-6">
-                  <p class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Vehículo</p>
-                </th>
-                <th class="px-5 py-3 text-left sm:px-6">
-                  <p class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Conductor</p>
-                </th>
-                <th class="px-5 py-3 text-left sm:px-6">
-                  <p class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Odómetro / Comb.</p>
-                </th>
-                <th class="px-5 py-3 text-left sm:px-6">
-                  <p class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Destino</p>
-                </th>
-                <th class="px-5 py-3 text-right sm:px-6">
-                  <p class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Acciones</p>
-                </th>
+              <tr>
+                <th scope="col" class="fleet-th">Fecha y hora</th>
+                <th scope="col" class="fleet-th">Tipo</th>
+                <th scope="col" class="fleet-th">Vehículo</th>
+                <th scope="col" class="fleet-th">Conductor</th>
+                <th scope="col" class="fleet-th">Odómetro / Comb.</th>
+                <th scope="col" class="fleet-th">Destino</th>
+                <th scope="col" class="fleet-th text-right">Acciones</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-              <tr v-for="b in bitacoras" :key="b.id" class="border-t border-gray-100 dark:border-gray-800">
-                <td class="px-5 py-4 text-theme-sm text-gray-700 dark:text-gray-200 sm:px-6">
+            <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+              <tr v-if="loading" v-for="n in 5" :key="`sk-${n}`" class="animate-pulse">
+                <td v-for="c in 7" :key="c" class="fleet-td">
+                  <div class="h-4 w-full max-w-[120px] rounded bg-gray-200 dark:bg-gray-800" />
+                </td>
+              </tr>
+
+              <tr v-else-if="bitacoras.length === 0">
+                <td colspan="7" class="p-0">
+                  <TableEmptyState
+                    icon="clipboard"
+                    :has-filters="hasFilters"
+                    :title="hasFilters ? 'Sin movimientos para estos filtros' : 'Aún no hay movimientos registrados'"
+                    :description="
+                      hasFilters
+                        ? 'Prueba cambiando el vehículo o el tipo de movimiento.'
+                        : 'Registra la primera salida o regreso de una unidad.'
+                    "
+                    @reset="resetFilters"
+                  />
+                </td>
+              </tr>
+
+              <tr v-for="b in bitacoras" v-else :key="b.id" class="fleet-tr">
+                <td class="fleet-td whitespace-nowrap text-theme-xs tabular-nums">
                   {{ formatDateTime(b.recorded_at) }}
                 </td>
-                <td class="px-5 py-4 sm:px-6">
-                  <span
-                    class="inline-flex rounded-full px-2.5 py-0.5 text-theme-xs font-medium"
-                    :class="
-                      b.type === 'salida'
-                        ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
-                        : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
-                    "
-                  >
-                    {{ b.type === 'salida' ? 'Salida' : 'Regreso' }}
+                <td class="fleet-td whitespace-nowrap">
+                  <StatusBadge kind="bitacoraType" :value="b.type" />
+                </td>
+                <td class="fleet-td whitespace-nowrap">
+                  <span class="rounded-md bg-gray-100 px-2 py-0.5 font-mono text-theme-xs font-semibold text-gray-900 dark:bg-gray-800 dark:text-white">
+                    {{ b.vehicle?.license_plate }}
                   </span>
                 </td>
-                <td class="px-5 py-4 font-medium text-gray-800 text-theme-sm dark:text-white/90 sm:px-6">
-                  {{ b.vehicle?.license_plate }}
-                </td>
-                <td class="px-5 py-4 text-theme-sm text-gray-600 dark:text-gray-300 sm:px-6">
+                <td class="fleet-td max-w-[125px] truncate text-gray-600 dark:text-gray-300 xl:max-w-[165px]" :title="b.driver?.name || b.user?.name || ''">
                   {{ b.driver?.name || b.user?.name }}
                 </td>
-                <td class="px-5 py-4 text-theme-sm text-gray-600 dark:text-gray-300 sm:px-6">
+                <td class="fleet-td whitespace-nowrap tabular-nums text-gray-600 dark:text-gray-300">
                   <span>{{ b.odometer_km !== null && b.odometer_km !== undefined ? `${b.odometer_km.toLocaleString()} km` : '—' }}</span>
-                  <span v-if="b.fuel_level" class="ml-1 text-theme-xs text-gray-400">({{ b.fuel_level }})</span>
+                  <span v-if="b.fuel_level" class="ml-1.5 rounded bg-gray-100 px-1.5 py-0.5 text-[11px] font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                    {{ b.fuel_level }}
+                  </span>
                 </td>
-                <td class="max-w-[200px] truncate px-5 py-4 text-theme-sm text-gray-600 dark:text-gray-300 sm:px-6" :title="b.destination || ''">
+                <td class="fleet-td max-w-[135px] truncate text-gray-600 dark:text-gray-300 xl:max-w-[200px]" :title="b.destination || ''">
                   {{ b.destination || '—' }}
                 </td>
-                <td class="px-5 py-4 text-right sm:px-6">
+                <td class="fleet-td whitespace-nowrap text-right">
                   <TableRowActions
                     :group-label="`Acciones bitácora ${b.id}`"
                     :show-edit="canManageFleet"
@@ -113,153 +133,129 @@
             </tbody>
           </table>
         </div>
-        <div
-          v-if="meta.last_page > 1"
-          class="flex items-center justify-between border-t border-gray-100 px-4 py-3 dark:border-gray-800"
-        >
-          <p class="text-theme-sm text-gray-500">
-            Página {{ meta.current_page }} de {{ meta.last_page }}
-          </p>
-          <div class="flex gap-2">
-            <button
-              type="button"
-              class="rounded border border-gray-200 px-3 py-1 text-theme-sm dark:border-gray-700"
-              :disabled="meta.current_page <= 1"
-              @click="changePage(meta.current_page - 1)"
-            >
-              Anterior
-            </button>
-            <button
-              type="button"
-              class="rounded border border-gray-200 px-3 py-1 text-theme-sm dark:border-gray-700"
-              :disabled="meta.current_page >= meta.last_page"
-              @click="changePage(meta.current_page + 1)"
-            >
-              Siguiente
-            </button>
-          </div>
-        </div>
+
+        <TablePagination
+          :current-page="meta.current_page"
+          :last-page="meta.last_page"
+          :total="meta.total"
+          :from="meta.from"
+          :to="meta.to"
+          @change="changePage"
+        />
       </div>
     </ComponentCard>
 
-    <div
-      v-if="modalOpen"
-      class="fixed inset-0 z-[100000] flex items-center justify-center bg-black/50 p-4"
-      @click.self="closeModal"
+    <BaseModal
+      :open="modalOpen"
+      :title="editingId ? 'Editar bitácora' : 'Nueva bitácora'"
+      :subtitle="editingId ? 'Actualiza los datos del movimiento registrado.' : 'El tipo de movimiento se calcula automáticamente según la unidad.'"
+      @close="closeModal"
     >
-      <div class="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-theme-md dark:bg-gray-900">
-        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
-          {{ editingId ? 'Editar bitácora' : 'Nueva bitácora' }}
-        </h2>
+      <div v-if="!editingId" class="mb-4 rounded-xl border border-gray-200/80 bg-gray-50/80 p-3.5 text-theme-xs dark:border-gray-800 dark:bg-white/[0.02]">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <p class="text-gray-600 dark:text-gray-300">
+            <span class="font-semibold text-gray-900 dark:text-white">Registró:</span>
+            {{ currentUser?.name }}
+          </p>
+          <p class="text-gray-500 dark:text-gray-400">
+            Hora automática del servidor al guardar
+          </p>
+        </div>
+      </div>
 
-        <div v-if="!editingId" class="mt-3 space-y-3">
-          <div class="rounded-lg border border-gray-200 bg-gray-50 p-3 text-theme-sm dark:border-gray-700 dark:bg-gray-800/50">
-            <p class="text-gray-600 dark:text-gray-300">
-              <span class="font-medium text-gray-800 dark:text-white">Registró:</span>
-              {{ currentUser?.name }}
-            </p>
-            <p class="mt-1 text-gray-600 dark:text-gray-300">
-              <span class="font-medium text-gray-800 dark:text-white">Fecha y hora:</span>
-              se registrará al guardar (hora del servidor).
-            </p>
+      <form id="bitacora-form" class="space-y-4" @submit.prevent="submit">
+        <div v-if="!editingId">
+          <label for="bitacora-vehicle" class="fleet-field-label">
+            Vehículo <span class="text-rose-500">*</span>
+          </label>
+          <select
+            id="bitacora-vehicle"
+            v-model="form.vehicle_id"
+            required
+            class="fleet-select"
+            @change="onVehicleChange"
+          >
+            <option value="" disabled>Seleccione una unidad…</option>
+            <option v-for="v in vehicleOptions" :key="v.id" :value="String(v.id)">
+              {{ v.license_plate }} — {{ v.brand }} {{ v.model }} ({{ v.status === 'mantenimiento' ? 'En mantenimiento' : v.next_type }})
+            </option>
+          </select>
+        </div>
+
+        <div
+          v-if="!editingId && nextType"
+          class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gray-200 bg-gray-50/70 px-3.5 py-2.5 dark:border-gray-800 dark:bg-white/[0.02]"
+        >
+          <div class="flex items-center gap-2">
+            <span class="text-theme-xs font-medium text-gray-600 dark:text-gray-300">Movimiento detectado:</span>
+            <StatusBadge kind="bitacoraType" :value="nextType" />
+          </div>
+          <span v-if="vehicleLastOdometer !== null" class="text-theme-xs font-medium tabular-nums text-gray-600 dark:text-gray-400">
+            Último odómetro: {{ vehicleLastOdometer.toLocaleString() }} km
+          </span>
+        </div>
+
+        <div
+          v-if="vehicleStatus === 'mantenimiento' && nextType === 'salida'"
+          class="rounded-xl border border-rose-200 bg-rose-50 p-3.5 text-theme-sm text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300"
+          role="alert"
+        >
+          Este vehículo está marcado en mantenimiento. Cambia su estado en Vehículos antes de registrar una salida.
+        </div>
+
+        <div v-if="canManageFleet">
+          <label for="bitacora-driver" class="fleet-field-label">Conductor asignado</label>
+          <select id="bitacora-driver" v-model="form.driver_id" class="fleet-select">
+            <option value="">Quien registra ({{ currentUser?.name }})</option>
+            <option v-for="d in driverOptions" :key="d.id" :value="String(d.id)">
+              {{ d.name }} {{ d.driver_code ? `(${d.driver_code})` : '' }}
+            </option>
+          </select>
+        </div>
+
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label for="bitacora-odometer" class="fleet-field-label">Odómetro (km)</label>
+            <input
+              id="bitacora-odometer"
+              v-model.number="form.odometer_km"
+              type="number"
+              min="0"
+              :placeholder="vehicleLastOdometer !== null ? `Mín. ${vehicleLastOdometer}` : 'Ej. 45200'"
+              class="fleet-input tabular-nums"
+            />
+          </div>
+          <div>
+            <label for="bitacora-fuel" class="fleet-field-label">Combustible</label>
+            <select id="bitacora-fuel" v-model="form.fuel_level" class="fleet-select">
+              <option value="">Sin especificar</option>
+              <option value="lleno">Lleno</option>
+              <option value="3/4">3/4</option>
+              <option value="1/2">1/2</option>
+              <option value="1/4">1/4</option>
+              <option value="reserva">Reserva</option>
+            </select>
           </div>
         </div>
 
-        <form class="mt-4 space-y-4" @submit.prevent="submit">
-          <div v-if="!editingId">
-            <label class="mb-1 block text-theme-sm font-medium text-gray-700 dark:text-gray-300">Vehículo</label>
-            <select
-              v-model="form.vehicle_id"
-              required
-              class="w-full rounded-lg border border-gray-200 px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-              @change="onVehicleChange"
-            >
-              <option value="" disabled>Seleccione…</option>
-              <option v-for="v in vehicleOptions" :key="v.id" :value="String(v.id)">
-                {{ v.license_plate }} — {{ v.brand }} {{ v.model }} ({{ v.status === 'mantenimiento' ? 'En mantenimiento' : v.next_type }})
-              </option>
-            </select>
-          </div>
-
-          <div v-if="!editingId && nextType" class="flex flex-wrap items-center gap-3">
-            <div class="flex items-center gap-2">
-              <span class="text-theme-sm text-gray-600 dark:text-gray-300">Movimiento:</span>
-              <span
-                class="inline-flex rounded-full px-2.5 py-0.5 text-theme-xs font-medium"
-                :class="
-                  nextType === 'salida'
-                    ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
-                    : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
-                "
-              >
-                {{ nextType === 'salida' ? 'Salida' : 'Regreso' }}
-              </span>
-            </div>
-            <span v-if="vehicleLastOdometer !== null" class="text-theme-xs text-gray-500">
-              Último odómetro: {{ vehicleLastOdometer.toLocaleString() }} km
-            </span>
-          </div>
-
-          <div v-if="vehicleStatus === 'mantenimiento' && nextType === 'salida'" class="rounded-lg bg-rose-50 p-3 text-theme-sm text-rose-700 dark:bg-rose-500/15 dark:text-rose-300">
-            Este vehículo está marcado en mantenimiento. Cambia su estado en Vehículos antes de registrar una salida.
-          </div>
-
-          <div v-if="canManageFleet">
-            <label class="mb-1 block text-theme-sm font-medium text-gray-700 dark:text-gray-300">Conductor asignado</label>
-            <select
-              v-model="form.driver_id"
-              class="w-full rounded-lg border border-gray-200 px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-            >
-              <option value="">Quien registra ({{ currentUser?.name }})</option>
-              <option v-for="d in driverOptions" :key="d.id" :value="String(d.id)">
-                {{ d.name }} {{ d.driver_code ? `(${d.driver_code})` : '' }}
-              </option>
-            </select>
-          </div>
-
-          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label class="mb-1 block text-theme-sm font-medium text-gray-700 dark:text-gray-300">Odómetro (km)</label>
-              <input
-                v-model.number="form.odometer_km"
-                type="number"
-                min="0"
-                :placeholder="vehicleLastOdometer !== null ? `Mín. ${vehicleLastOdometer}` : 'Ej. 45200'"
-                class="w-full rounded-lg border border-gray-200 px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-              />
-            </div>
-            <div>
-              <label class="mb-1 block text-theme-sm font-medium text-gray-700 dark:text-gray-300">Combustible</label>
-              <select
-                v-model="form.fuel_level"
-                class="w-full rounded-lg border border-gray-200 px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-              >
-                <option value="">Sin especificar</option>
-                <option value="lleno">Lleno</option>
-                <option value="3/4">3/4</option>
-                <option value="1/2">1/2</option>
-                <option value="1/4">1/4</option>
-                <option value="reserva">Reserva</option>
-              </select>
-            </div>
-          </div>
-
-          <div v-if="!editingId && nextType === 'salida'">
-            <label class="mb-1 block text-theme-sm font-medium text-gray-700 dark:text-gray-300">
-              ¿A dónde se dirige? <span class="text-rose-500">*</span>
-            </label>
-            <textarea
-              v-model="form.destination"
-              rows="3"
-              class="w-full rounded-lg border border-gray-200 px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-              placeholder="Dirección o lugar (se usa en el mapa)"
-              required
-            />
-            <p class="mt-1 text-theme-xs text-gray-500">Vista previa con Google Maps:</p>
-            <div v-if="destinationMapSrc" class="mt-2 overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
+        <div v-if="!editingId && nextType === 'salida'">
+          <label for="bitacora-destination-out" class="fleet-field-label">
+            ¿A dónde se dirige? <span class="text-rose-500">*</span>
+          </label>
+          <textarea
+            id="bitacora-destination-out"
+            v-model="form.destination"
+            rows="3"
+            class="fleet-textarea"
+            placeholder="Dirección o lugar (se usa en el mapa)"
+            required
+          />
+          <div v-if="destinationMapSrc" class="mt-2.5 space-y-1.5">
+            <p class="text-theme-xs text-gray-500 dark:text-gray-400">Vista previa con Google Maps</p>
+            <div class="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800">
               <iframe
                 title="Mapa destino"
-                class="h-48 w-full border-0"
+                class="h-44 w-full border-0"
                 loading="lazy"
                 referrerpolicy="no-referrer-when-downgrade"
                 :src="destinationMapSrc"
@@ -270,89 +266,180 @@
               :href="googleMapsSearchUrl(form.destination)"
               target="_blank"
               rel="noopener noreferrer"
-              class="mt-2 inline-block text-theme-sm text-sky-600 underline hover:text-sky-700 dark:text-sky-400"
+              class="inline-flex items-center gap-1 text-theme-xs font-medium text-brand-600 hover:underline dark:text-brand-400"
             >
-              Abrir en Google Maps
+              Abrir en Google Maps ↗
             </a>
           </div>
+        </div>
 
-          <div v-if="!editingId && nextType === 'regreso'">
-            <label class="mb-1 block text-theme-sm font-medium text-gray-700 dark:text-gray-300">Notas de regreso (opcional)</label>
-            <textarea
-              v-model="form.destination"
-              rows="2"
-              class="w-full rounded-lg border border-gray-200 px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-              placeholder="Observaciones del regreso"
+        <div v-if="!editingId && nextType === 'regreso'">
+          <label for="bitacora-destination-in" class="fleet-field-label">Notas de regreso (opcional)</label>
+          <textarea
+            id="bitacora-destination-in"
+            v-model="form.destination"
+            rows="2"
+            class="fleet-textarea"
+            placeholder="Observaciones del regreso"
+          />
+        </div>
+
+        <div v-if="editingId">
+          <label for="bitacora-destination-edit" class="fleet-field-label">Destino / notas</label>
+          <textarea
+            id="bitacora-destination-edit"
+            v-model="form.destination"
+            rows="3"
+            class="fleet-textarea"
+          />
+          <div v-if="destinationMapSrc" class="mt-2.5 overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800">
+            <iframe
+              title="Mapa destino"
+              class="h-40 w-full border-0"
+              loading="lazy"
+              referrerpolicy="no-referrer-when-downgrade"
+              :src="destinationMapSrc"
             />
           </div>
+        </div>
 
-          <div v-if="editingId">
-            <label class="mb-1 block text-theme-sm font-medium text-gray-700 dark:text-gray-300">Destino / notas</label>
-            <textarea
-              v-model="form.destination"
-              rows="3"
-              class="w-full rounded-lg border border-gray-200 px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-            />
-            <div v-if="destinationMapSrc" class="mt-2 overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
-              <iframe
-                title="Mapa destino"
-                class="h-40 w-full border-0"
-                loading="lazy"
-                referrerpolicy="no-referrer-when-downgrade"
-                :src="destinationMapSrc"
-              />
-            </div>
-          </div>
+        <div>
+          <label for="bitacora-companions" class="fleet-field-label">Personas que acompañan</label>
+          <textarea
+            id="bitacora-companions"
+            v-model="form.companions"
+            rows="2"
+            class="fleet-textarea"
+            placeholder="Nombres separados por comas, u observaciones"
+          />
+        </div>
+      </form>
 
-          <div>
-            <label class="mb-1 block text-theme-sm font-medium text-gray-700 dark:text-gray-300">Personas que acompañan</label>
-            <textarea
-              v-model="form.companions"
-              rows="2"
-              class="w-full rounded-lg border border-gray-200 px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-              placeholder="Nombres separados por comas, u observaciones"
-            />
-          </div>
+      <template #footer>
+        <button type="button" class="fleet-btn-secondary" @click="closeModal">
+          Cancelar
+        </button>
+        <button type="submit" form="bitacora-form" :disabled="saving" class="fleet-btn-primary">
+          {{ saving ? 'Guardando…' : 'Guardar' }}
+        </button>
+      </template>
+    </BaseModal>
 
-          <div class="flex justify-end gap-2 pt-2">
-            <button
-              type="button"
-              class="rounded-lg border border-gray-200 px-4 py-2 text-theme-sm dark:border-gray-700"
-              @click="closeModal"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              class="rounded-lg bg-brand-500 px-4 py-2 text-theme-sm font-medium text-white hover:bg-brand-600"
-            >
-              Guardar
-            </button>
+    <BaseModal
+      :open="detailOpen"
+      :title="detailItem?.vehicle?.license_plate ? `Bitácora · ${detailItem.vehicle.license_plate}` : 'Detalle de bitácora'"
+      :subtitle="detailItem ? `${detailItem.vehicle?.brand || ''} ${detailItem.vehicle?.model || ''}`.trim() : ''"
+      @close="detailOpen = false"
+    >
+      <div v-if="detailItem" class="space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gray-200/80 bg-gray-50/80 px-4 py-3 dark:border-gray-800 dark:bg-white/[0.02]">
+          <StatusBadge kind="bitacoraType" :value="detailItem.type" />
+          <span class="text-theme-xs font-medium tabular-nums text-gray-500 dark:text-gray-400">
+            {{ formatDateTime(detailItem.recorded_at) }}
+          </span>
+        </div>
+
+        <dl class="grid grid-cols-1 gap-3 text-theme-sm sm:grid-cols-2">
+          <div class="rounded-xl border border-gray-100 p-3 dark:border-gray-800">
+            <dt class="text-theme-xs text-gray-500 dark:text-gray-400">Conductor</dt>
+            <dd class="mt-0.5 font-medium text-gray-900 dark:text-white">
+              {{ detailItem.driver?.name || detailItem.user?.name || '—' }}
+            </dd>
           </div>
-        </form>
+          <div class="rounded-xl border border-gray-100 p-3 dark:border-gray-800">
+            <dt class="text-theme-xs text-gray-500 dark:text-gray-400">Registró</dt>
+            <dd class="mt-0.5 font-medium text-gray-900 dark:text-white">
+              {{ detailItem.user?.name || '—' }}
+            </dd>
+          </div>
+          <div class="rounded-xl border border-gray-100 p-3 dark:border-gray-800">
+            <dt class="text-theme-xs text-gray-500 dark:text-gray-400">Odómetro</dt>
+            <dd class="mt-0.5 font-medium tabular-nums text-gray-900 dark:text-white">
+              {{ detailItem.odometer_km !== null && detailItem.odometer_km !== undefined ? `${detailItem.odometer_km.toLocaleString()} km` : '—' }}
+            </dd>
+          </div>
+          <div class="rounded-xl border border-gray-100 p-3 dark:border-gray-800">
+            <dt class="text-theme-xs text-gray-500 dark:text-gray-400">Combustible</dt>
+            <dd class="mt-0.5 font-medium text-gray-900 dark:text-white">
+              {{ detailItem.fuel_level || '—' }}
+            </dd>
+          </div>
+        </dl>
+
+        <div class="rounded-xl border border-gray-100 p-3.5 text-theme-sm dark:border-gray-800">
+          <p class="text-theme-xs font-medium text-gray-500 dark:text-gray-400">Destino / notas</p>
+          <p class="mt-1 whitespace-pre-line text-gray-900 dark:text-gray-100">
+            {{ detailItem.destination || '—' }}
+          </p>
+          <a
+            v-if="detailItem.destination?.trim()"
+            :href="googleMapsSearchUrl(detailItem.destination)"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="mt-2 inline-flex items-center gap-1 text-theme-xs font-medium text-brand-600 hover:underline dark:text-brand-400"
+          >
+            Abrir destino en Google Maps ↗
+          </a>
+        </div>
+
+        <div v-if="detailItem.destination?.trim()" class="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800">
+          <iframe
+            title="Mapa destino detalle"
+            class="h-48 w-full border-0"
+            loading="lazy"
+            referrerpolicy="no-referrer-when-downgrade"
+            :src="`https://www.google.com/maps?q=${encodeURIComponent(detailItem.destination.trim())}&output=embed`"
+          />
+        </div>
+
+        <div class="rounded-xl border border-gray-100 p-3.5 text-theme-sm dark:border-gray-800">
+          <p class="text-theme-xs font-medium text-gray-500 dark:text-gray-400">Acompañantes</p>
+          <p class="mt-1 text-gray-900 dark:text-gray-100">
+            {{ detailItem.companions || '—' }}
+          </p>
+        </div>
       </div>
-    </div>
+
+      <template #footer>
+        <button type="button" class="fleet-btn-primary" @click="detailOpen = false">
+          Cerrar
+        </button>
+      </template>
+    </BaseModal>
   </AdminLayout>
 </template>
 
 <script setup>
-import Swal from 'sweetalert2';
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import AdminLayout from '@/components/layout/AdminLayout.vue';
+import BaseModal from '@/components/common/BaseModal.vue';
 import ComponentCard from '@/components/common/ComponentCard.vue';
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue';
+import StatusBadge from '@/components/common/StatusBadge.vue';
+import TableEmptyState from '@/components/common/TableEmptyState.vue';
+import TablePagination from '@/components/common/TablePagination.vue';
 import TableRowActions from '@/components/common/TableRowActions.vue';
 import { useAuth } from '../composables/useAuth';
+import {
+  confirmDeleteDialog,
+  showErrorAlert,
+  showSuccessAlert,
+  showWarningAlert,
+} from '../utils/alerts';
 
 const { currentUser, isAdmin, canManageFleet, loadMe, logout } = useAuth();
 
 const bitacoras = ref([]);
 const vehicleOptions = ref([]);
 const driverOptions = ref([]);
-const meta = ref({ current_page: 1, last_page: 1 });
+const loading = ref(true);
+const saving = ref(false);
+const meta = ref({ current_page: 1, last_page: 1, total: 0, from: 0, to: 0 });
 const filterVehicleId = ref('');
 const filterType = ref('');
 const modalOpen = ref(false);
+const detailOpen = ref(false);
+const detailItem = ref(null);
 const editingId = ref(null);
 const nextType = ref(null);
 const vehicleStatus = ref(null);
@@ -366,6 +453,8 @@ const form = reactive({
   destination: '',
   companions: '',
 });
+
+const hasFilters = computed(() => Boolean(filterVehicleId.value || filterType.value));
 
 const destinationMapSrc = computed(() => {
   const q = String(form.destination || '').trim();
@@ -393,15 +482,31 @@ const loadDrivers = async () => {
 };
 
 const loadBitacoras = async (page = 1) => {
-  const params = { page, per_page: 15 };
-  if (filterVehicleId.value) params.vehicle_id = filterVehicleId.value;
-  if (filterType.value) params.type = filterType.value;
-  const { data } = await window.axios.get('/bitacoras', { params });
-  bitacoras.value = data.data;
-  meta.value = {
-    current_page: data.current_page,
-    last_page: data.last_page,
-  };
+  loading.value = true;
+  try {
+    const params = { page, per_page: 15 };
+    if (filterVehicleId.value) params.vehicle_id = filterVehicleId.value;
+    if (filterType.value) params.type = filterType.value;
+    const { data } = await window.axios.get('/bitacoras', { params });
+    bitacoras.value = data.data || [];
+    meta.value = {
+      current_page: data.current_page ?? 1,
+      last_page: data.last_page ?? 1,
+      total: data.total ?? bitacoras.value.length,
+      from: data.from ?? 0,
+      to: data.to ?? 0,
+    };
+  } catch (_) {
+    /* manejado por interceptor o estado actual */
+  } finally {
+    loading.value = false;
+  }
+};
+
+const resetFilters = () => {
+  filterVehicleId.value = '';
+  filterType.value = '';
+  loadBitacoras(1);
 };
 
 const changePage = (page) => {
@@ -458,39 +563,9 @@ const openEdit = (b) => {
   modalOpen.value = true;
 };
 
-const esc = (v) =>
-  String(v ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-
 const openView = (b) => {
-  const dest = b.destination && String(b.destination).trim();
-  const mapLink = dest ? googleMapsSearchUrl(dest) : '';
-  const mapIframe =
-    dest &&
-    `<div class="mt-3 overflow-hidden rounded-lg border border-gray-200"><iframe class="h-48 w-full border-0" loading="lazy" src="https://www.google.com/maps?q=${encodeURIComponent(dest)}&output=embed"></iframe></div>`;
-  Swal.fire({
-    title: esc(b.vehicle?.license_plate),
-    html: `
-      <div class="text-left text-theme-sm space-y-2 text-gray-700">
-        <p><strong>Fecha:</strong> ${esc(formatDateTime(b.recorded_at))}</p>
-        <p><strong>Tipo:</strong> ${b.type === 'salida' ? 'Salida' : 'Regreso'}</p>
-        <p><strong>Conductor:</strong> ${esc(b.driver?.name || b.user?.name)}</p>
-        <p><strong>Registró:</strong> ${esc(b.user?.name)}</p>
-        <p><strong>Odómetro:</strong> ${b.odometer_km !== null && b.odometer_km !== undefined ? `${b.odometer_km.toLocaleString()} km` : '—'}</p>
-        <p><strong>Combustible:</strong> ${esc(b.fuel_level || '—')}</p>
-        <p><strong>Destino / notas:</strong> ${dest ? esc(dest) : '—'}</p>
-        <p><strong>Acompañantes:</strong> ${b.companions ? esc(b.companions) : '—'}</p>
-        ${mapLink ? `<p><a href="${esc(mapLink)}" target="_blank" rel="noopener noreferrer" class="text-sky-600 underline">Abrir destino en Google Maps</a></p>` : ''}
-      </div>
-      ${mapIframe || ''}
-    `,
-    confirmButtonText: 'Cerrar',
-    showCloseButton: true,
-    width: 560,
-  });
+  detailItem.value = b;
+  detailOpen.value = true;
 };
 
 const closeModal = () => {
@@ -498,12 +573,14 @@ const closeModal = () => {
 };
 
 const submit = async () => {
-  try {
-    if (!editingId.value && nextType.value === 'salida' && !String(form.destination || '').trim()) {
-      await Swal.fire({ icon: 'warning', title: 'Destino requerido', text: 'Indique a dónde se dirige el vehículo.' });
-      return;
-    }
+  if (saving.value) return;
+  if (!editingId.value && nextType.value === 'salida' && !String(form.destination || '').trim()) {
+    await showWarningAlert('Destino requerido', 'Indique a dónde se dirige el vehículo.');
+    return;
+  }
 
+  saving.value = true;
+  try {
     const payload = {
       driver_id: form.driver_id ? Number(form.driver_id) : null,
       odometer_km: form.odometer_km !== null && form.odometer_km !== '' ? Number(form.odometer_km) : null,
@@ -520,32 +597,31 @@ const submit = async () => {
         vehicle_id: Number(form.vehicle_id),
       });
     }
-    await Swal.fire({ icon: 'success', title: 'Guardado', timer: 1400, showConfirmButton: false });
+    await showSuccessAlert('Guardado');
     closeModal();
     await Promise.all([loadVehicles(), loadBitacoras(meta.value.current_page)]);
   } catch (err) {
     const errors = err.response?.data?.errors;
     const firstErr = errors ? Object.values(errors).flat()[0] : null;
     const msg = firstErr || err.response?.data?.message || 'No se pudo guardar';
-    await Swal.fire({ icon: 'error', title: 'Error', text: msg });
+    await showErrorAlert('Error', msg);
+  } finally {
+    saving.value = false;
   }
 };
 
 const confirmDelete = async (b) => {
-  const r = await Swal.fire({
-    icon: 'warning',
+  const r = await confirmDeleteDialog({
     title: '¿Eliminar registro de bitácora?',
-    showCancelButton: true,
-    confirmButtonText: 'Sí, eliminar',
-    cancelButtonText: 'Cancelar',
+    text: b.vehicle?.license_plate ? `${b.vehicle.license_plate} · ${formatDateTime(b.recorded_at)}` : '',
   });
   if (!r.isConfirmed) return;
   try {
     await window.axios.delete(`/bitacoras/${b.id}`);
-    await Swal.fire({ icon: 'success', title: 'Eliminado', timer: 1200, showConfirmButton: false });
+    await showSuccessAlert('Eliminado');
     await Promise.all([loadVehicles(), loadBitacoras(meta.value.current_page)]);
   } catch (err) {
-    await Swal.fire({ icon: 'error', title: err.response?.data?.message || 'No se pudo eliminar' });
+    await showErrorAlert('Error', err.response?.data?.message || 'No se pudo eliminar');
   }
 };
 

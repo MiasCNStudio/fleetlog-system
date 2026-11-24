@@ -1,7 +1,7 @@
 import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import Swal from 'sweetalert2';
 import { setAuthToken } from '../bootstrap';
+import { showSuccessAlert } from '../utils/alerts';
 
 const storedUser = (() => {
   try {
@@ -47,12 +47,7 @@ export function useAuth() {
       setCurrentUser(null);
       await router.push({ name: 'login' });
       if (showAlert) {
-        Swal.fire({
-          icon: 'success',
-          title: 'Sesión cerrada',
-          timer: 1200,
-          showConfirmButton: false,
-        });
+        showSuccessAlert('Sesión cerrada');
       }
     }
   };

@@ -1,37 +1,45 @@
 <template>
-  <AdminLayout header-title="Incidencias" :user-name="currentUser?.name" @logout="logout">
+  <AdminLayout header-title="Incidencias" :user-name="currentUser?.name" @logout="logout(true)">
     <PageBreadcrumb page-title="Incidencias" subtitle="Reportes de fallas, accidentes o novedades de las unidades.">
       <template #actions>
-        <button
-          type="button"
-          class="rounded-lg bg-brand-500 px-4 py-2 text-theme-sm font-medium text-white hover:bg-brand-600"
-          @click="openCreate"
-        >
+        <button type="button" class="fleet-btn-primary" @click="openCreate">
+          <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+          </svg>
           Reportar incidencia
         </button>
       </template>
     </PageBreadcrumb>
 
     <ComponentCard title="Historial de incidencias" desc="Seguimiento por vehículo, severidad y estado.">
-      <div class="mb-4 flex flex-wrap items-end gap-3">
-        <div>
-          <label class="mb-1 block text-theme-xs font-medium text-gray-600 dark:text-gray-400">Vehículo</label>
+      <template #header-extra>
+        <span class="rounded-lg bg-gray-100 px-2.5 py-1 text-theme-xs font-semibold tabular-nums text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+          {{ meta.total }} {{ meta.total === 1 ? 'incidencia' : 'incidencias' }}
+        </span>
+      </template>
+
+      <div class="fleet-filter-bar grid grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:items-end">
+        <div class="w-full sm:w-64">
+          <label for="incidents-filter-vehicle" class="fleet-label">Vehículo</label>
           <select
+            id="incidents-filter-vehicle"
             v-model="filterVehicleId"
-            class="rounded-lg border border-gray-200 px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+            class="fleet-select"
             @change="loadIncidents(1)"
           >
-            <option value="">Todos</option>
+            <option value="">Todos los vehículos</option>
             <option v-for="v in vehicleOptions" :key="v.id" :value="String(v.id)">
               {{ v.license_plate }} — {{ v.brand }} {{ v.model }}
             </option>
           </select>
         </div>
-        <div>
-          <label class="mb-1 block text-theme-xs font-medium text-gray-600 dark:text-gray-400">Estado</label>
+
+        <div class="w-full sm:w-44">
+          <label for="incidents-filter-status" class="fleet-label">Estado</label>
           <select
+            id="incidents-filter-status"
             v-model="filterStatus"
-            class="rounded-lg border border-gray-200 px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+            class="fleet-select"
             @change="loadIncidents(1)"
           >
             <option value="">Todos</option>
@@ -40,11 +48,13 @@
             <option value="resuelta">Resuelta</option>
           </select>
         </div>
-        <div>
-          <label class="mb-1 block text-theme-xs font-medium text-gray-600 dark:text-gray-400">Severidad</label>
+
+        <div class="w-full sm:w-44">
+          <label for="incidents-filter-severity" class="fleet-label">Severidad</label>
           <select
+            id="incidents-filter-severity"
             v-model="filterSeverity"
-            class="rounded-lg border border-gray-200 px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+            class="fleet-select"
             @change="loadIncidents(1)"
           >
             <option value="">Todas</option>
@@ -54,61 +64,76 @@
             <option value="critica">Crítica</option>
           </select>
         </div>
+
+        <button
+          v-if="hasFilters"
+          type="button"
+          class="fleet-btn-secondary h-10 px-3.5 text-theme-xs"
+          @click="resetFilters"
+        >
+          Limpiar filtros
+        </button>
       </div>
 
-      <div class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+      <div class="fleet-table-wrap">
         <div class="max-w-full overflow-x-auto">
-          <table class="min-w-full">
+          <table class="w-full divide-y divide-gray-200 dark:divide-gray-800">
             <thead>
-              <tr class="border-b border-gray-200 dark:border-gray-700">
-                <th class="px-5 py-3 text-left sm:px-6">
-                  <p class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Fecha</p>
-                </th>
-                <th class="px-5 py-3 text-left sm:px-6">
-                  <p class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Vehículo</p>
-                </th>
-                <th class="px-5 py-3 text-left sm:px-6">
-                  <p class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Título</p>
-                </th>
-                <th class="px-5 py-3 text-left sm:px-6">
-                  <p class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Severidad</p>
-                </th>
-                <th class="px-5 py-3 text-left sm:px-6">
-                  <p class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Estado</p>
-                </th>
-                <th class="px-5 py-3 text-left sm:px-6">
-                  <p class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Reportó</p>
-                </th>
-                <th class="px-5 py-3 text-right sm:px-6">
-                  <p class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Acciones</p>
-                </th>
+              <tr>
+                <th scope="col" class="fleet-th">Fecha</th>
+                <th scope="col" class="fleet-th">Vehículo</th>
+                <th scope="col" class="fleet-th">Título</th>
+                <th scope="col" class="fleet-th">Severidad</th>
+                <th scope="col" class="fleet-th">Estado</th>
+                <th scope="col" class="fleet-th">Reportó</th>
+                <th scope="col" class="fleet-th text-right">Acciones</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-              <tr v-for="inc in incidents" :key="inc.id" class="border-t border-gray-100 dark:border-gray-800">
-                <td class="px-5 py-4 text-theme-sm text-gray-600 dark:text-gray-300 sm:px-6">
+            <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+              <tr v-if="loading" v-for="n in 5" :key="`sk-${n}`" class="animate-pulse">
+                <td v-for="c in 7" :key="c" class="fleet-td">
+                  <div class="h-4 w-full max-w-[120px] rounded bg-gray-200 dark:bg-gray-800" />
+                </td>
+              </tr>
+
+              <tr v-else-if="incidents.length === 0">
+                <td colspan="7" class="p-0">
+                  <TableEmptyState
+                    icon="alert"
+                    :has-filters="hasFilters"
+                    :title="hasFilters ? 'Sin incidencias para estos filtros' : 'Sin incidencias reportadas'"
+                    :description="
+                      hasFilters
+                        ? 'Prueba cambiando el vehículo, estado o severidad.'
+                        : 'Cuando se reporte una falla o novedad aparecerá aquí.'
+                    "
+                    @reset="resetFilters"
+                  />
+                </td>
+              </tr>
+
+              <tr v-for="inc in incidents" v-else :key="inc.id" class="fleet-tr">
+                <td class="fleet-td whitespace-nowrap text-theme-xs tabular-nums">
                   {{ formatDateTime(inc.reported_at) }}
                 </td>
-                <td class="px-5 py-4 font-medium text-gray-800 text-theme-sm dark:text-white/90 sm:px-6">
-                  {{ inc.vehicle?.license_plate }}
+                <td class="fleet-td whitespace-nowrap">
+                  <span class="rounded-md bg-gray-100 px-2 py-0.5 font-mono text-theme-xs font-semibold text-gray-900 dark:bg-gray-800 dark:text-white">
+                    {{ inc.vehicle?.license_plate }}
+                  </span>
                 </td>
-                <td class="max-w-[220px] truncate px-5 py-4 text-theme-sm text-gray-700 dark:text-gray-200 sm:px-6" :title="inc.title">
+                <td class="fleet-td max-w-[145px] truncate font-medium text-gray-900 dark:text-white xl:max-w-[220px]" :title="inc.title">
                   {{ inc.title }}
                 </td>
-                <td class="px-5 py-4 sm:px-6">
-                  <span class="inline-flex rounded-full px-2.5 py-0.5 text-theme-xs font-medium capitalize" :class="severityBadgeClass(inc.severity)">
-                    {{ inc.severity }}
-                  </span>
+                <td class="fleet-td whitespace-nowrap">
+                  <StatusBadge kind="incidentSeverity" :value="inc.severity" />
                 </td>
-                <td class="px-5 py-4 sm:px-6">
-                  <span class="inline-flex rounded-full px-2.5 py-0.5 text-theme-xs font-medium" :class="statusBadgeClass(inc.status)">
-                    {{ statusLabel(inc.status) }}
-                  </span>
+                <td class="fleet-td whitespace-nowrap">
+                  <StatusBadge kind="incidentStatus" :value="inc.status" />
                 </td>
-                <td class="px-5 py-4 text-theme-sm text-gray-600 dark:text-gray-300 sm:px-6">
+                <td class="fleet-td max-w-[120px] truncate text-gray-600 dark:text-gray-300 xl:max-w-[160px]" :title="inc.reporter?.name || ''">
                   {{ inc.reporter?.name || '—' }}
                 </td>
-                <td class="px-5 py-4 text-right sm:px-6">
+                <td class="fleet-td whitespace-nowrap text-right">
                   <TableRowActions
                     :group-label="`Acciones incidencia ${inc.id}`"
                     :show-edit="canManageFleet"
@@ -122,160 +147,201 @@
             </tbody>
           </table>
         </div>
-        <div
-          v-if="meta.last_page > 1"
-          class="flex items-center justify-between border-t border-gray-100 px-4 py-3 dark:border-gray-800"
-        >
-          <p class="text-theme-sm text-gray-500">
-            Página {{ meta.current_page }} de {{ meta.last_page }}
-          </p>
-          <div class="flex gap-2">
-            <button
-              type="button"
-              class="rounded border border-gray-200 px-3 py-1 text-theme-sm dark:border-gray-700"
-              :disabled="meta.current_page <= 1"
-              @click="changePage(meta.current_page - 1)"
-            >
-              Anterior
-            </button>
-            <button
-              type="button"
-              class="rounded border border-gray-200 px-3 py-1 text-theme-sm dark:border-gray-700"
-              :disabled="meta.current_page >= meta.last_page"
-              @click="changePage(meta.current_page + 1)"
-            >
-              Siguiente
-            </button>
-          </div>
-        </div>
+
+        <TablePagination
+          :current-page="meta.current_page"
+          :last-page="meta.last_page"
+          :total="meta.total"
+          :from="meta.from"
+          :to="meta.to"
+          @change="changePage"
+        />
       </div>
     </ComponentCard>
 
-    <div
-      v-if="modalOpen"
-      class="fixed inset-0 z-[100000] flex items-center justify-center bg-black/50 p-4"
-      @click.self="closeModal"
+    <BaseModal
+      :open="modalOpen"
+      :title="editingId ? 'Actualizar incidencia' : 'Reportar incidencia'"
+      :subtitle="editingId ? 'Actualiza la severidad, descripción o estado de seguimiento.' : 'Registra fallas o novedades detectadas en una unidad.'"
+      @close="closeModal"
     >
-      <div class="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-theme-md dark:bg-gray-900">
-        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
-          {{ editingId ? 'Actualizar incidencia' : 'Reportar incidencia' }}
-        </h2>
-        <form class="mt-4 space-y-4" @submit.prevent="submit">
-          <div v-if="!editingId">
-            <label class="mb-1 block text-theme-sm font-medium text-gray-700 dark:text-gray-300">Vehículo</label>
-            <select
-              v-model="form.vehicle_id"
-              required
-              class="w-full rounded-lg border border-gray-200 px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-            >
-              <option value="" disabled>Seleccione…</option>
-              <option v-for="v in vehicleOptions" :key="v.id" :value="String(v.id)">
-                {{ v.license_plate }} — {{ v.brand }} {{ v.model }}
-              </option>
+      <form id="incident-form" class="space-y-4" @submit.prevent="submit">
+        <div v-if="!editingId">
+          <label for="incident-vehicle" class="fleet-field-label">
+            Vehículo <span class="text-rose-500">*</span>
+          </label>
+          <select id="incident-vehicle" v-model="form.vehicle_id" required class="fleet-select">
+            <option value="" disabled>Seleccione una unidad…</option>
+            <option v-for="v in vehicleOptions" :key="v.id" :value="String(v.id)">
+              {{ v.license_plate }} — {{ v.brand }} {{ v.model }}
+            </option>
+          </select>
+        </div>
+
+        <div>
+          <label for="incident-title" class="fleet-field-label">
+            Título breve <span class="text-rose-500">*</span>
+          </label>
+          <input
+            id="incident-title"
+            v-model="form.title"
+            type="text"
+            required
+            placeholder="Ej. Llanta delantera derecha pinchada"
+            class="fleet-input"
+          />
+        </div>
+
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label for="incident-severity" class="fleet-field-label">Severidad</label>
+            <select id="incident-severity" v-model="form.severity" class="fleet-select">
+              <option value="baja">Baja</option>
+              <option value="media">Media</option>
+              <option value="alta">Alta</option>
+              <option value="critica">Crítica</option>
             </select>
           </div>
-
-          <div>
-            <label class="mb-1 block text-theme-sm font-medium text-gray-700 dark:text-gray-300">Título breve</label>
-            <input
-              v-model="form.title"
-              type="text"
-              required
-              placeholder="Ej. Llanta delantera derecha pinchada"
-              class="w-full rounded-lg border border-gray-200 px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-            />
+          <div v-if="editingId">
+            <label for="incident-status" class="fleet-field-label">Estado</label>
+            <select id="incident-status" v-model="form.status" class="fleet-select">
+              <option value="abierta">Abierta</option>
+              <option value="en_revision">En revisión</option>
+              <option value="resuelta">Resuelta</option>
+            </select>
           </div>
+        </div>
 
-          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label class="mb-1 block text-theme-sm font-medium text-gray-700 dark:text-gray-300">Severidad</label>
-              <select
-                v-model="form.severity"
-                class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-              >
-                <option value="baja">Baja</option>
-                <option value="media">Media</option>
-                <option value="alta">Alta</option>
-                <option value="critica">Crítica</option>
-              </select>
-            </div>
-            <div v-if="editingId">
-              <label class="mb-1 block text-theme-sm font-medium text-gray-700 dark:text-gray-300">Estado</label>
-              <select
-                v-model="form.status"
-                class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-              >
-                <option value="abierta">Abierta</option>
-                <option value="en_revision">En revisión</option>
-                <option value="resuelta">Resuelta</option>
-              </select>
-            </div>
-          </div>
+        <div>
+          <label for="incident-description" class="fleet-field-label">Descripción</label>
+          <textarea
+            id="incident-description"
+            v-model="form.description"
+            rows="3"
+            placeholder="Detalles de lo ocurrido..."
+            class="fleet-textarea"
+          />
+        </div>
 
-          <div>
-            <label class="mb-1 block text-theme-sm font-medium text-gray-700 dark:text-gray-300">Descripción</label>
-            <textarea
-              v-model="form.description"
-              rows="3"
-              placeholder="Detalles de lo ocurrido..."
-              class="w-full rounded-lg border border-gray-200 px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-            />
-          </div>
+        <div
+          v-if="!editingId && canManageFleet"
+          class="flex items-start gap-2.5 rounded-xl border border-amber-200/80 bg-amber-50/70 p-3 dark:border-amber-500/25 dark:bg-amber-500/10"
+        >
+          <input
+            id="maint-check"
+            v-model="form.set_vehicle_maintenance"
+            type="checkbox"
+            class="mt-0.5 size-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500"
+          />
+          <label for="maint-check" class="text-theme-sm font-medium text-amber-900 dark:text-amber-200">
+            Poner vehículo en estado de mantenimiento
+          </label>
+        </div>
 
-          <div v-if="!editingId && canManageFleet" class="flex items-center gap-2">
-            <input id="maint-check" v-model="form.set_vehicle_maintenance" type="checkbox" class="rounded border-gray-300" />
-            <label for="maint-check" class="text-theme-sm text-gray-700 dark:text-gray-300">
-              Poner vehículo en estado de mantenimiento
-            </label>
+        <div v-if="!editingId">
+          <label for="incident-photo" class="fleet-field-label">Evidencia fotográfica (opcional)</label>
+          <input id="incident-photo" type="file" accept="image/*" class="fleet-file" @change="onFile" />
+          <div v-if="previewUrl" class="mt-3">
+            <img :src="previewUrl" alt="Vista previa" class="h-28 w-44 rounded-xl border border-gray-200 object-cover dark:border-gray-700" />
           </div>
+        </div>
+      </form>
 
-          <div v-if="!editingId">
-            <label class="mb-1 block text-theme-sm font-medium text-gray-700 dark:text-gray-300">Evidencia fotográfica (opcional)</label>
-            <input type="file" accept="image/*" class="w-full text-theme-sm" @change="onFile" />
-            <div v-if="previewUrl" class="mt-2">
-              <img :src="previewUrl" alt="Vista previa" class="h-28 w-40 rounded-lg object-cover" />
-            </div>
-          </div>
+      <template #footer>
+        <button type="button" class="fleet-btn-secondary" @click="closeModal">
+          Cancelar
+        </button>
+        <button type="submit" form="incident-form" :disabled="saving" class="fleet-btn-primary">
+          {{ saving ? 'Guardando…' : 'Guardar' }}
+        </button>
+      </template>
+    </BaseModal>
 
-          <div class="flex justify-end gap-2 pt-2">
-            <button
-              type="button"
-              class="rounded-lg border border-gray-200 px-4 py-2 text-theme-sm dark:border-gray-700"
-              @click="closeModal"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              class="rounded-lg bg-brand-500 px-4 py-2 text-theme-sm font-medium text-white hover:bg-brand-600"
-            >
-              Guardar
-            </button>
+    <BaseModal
+      :open="detailOpen"
+      :title="detailItem?.title || 'Detalle de incidencia'"
+      :subtitle="detailItem?.vehicle ? `${detailItem.vehicle.license_plate} · ${detailItem.vehicle.brand} ${detailItem.vehicle.model}` : ''"
+      @close="detailOpen = false"
+    >
+      <div v-if="detailItem" class="space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gray-200/80 bg-gray-50/80 px-4 py-3 dark:border-gray-800 dark:bg-white/[0.02]">
+          <div class="flex items-center gap-2">
+            <StatusBadge kind="incidentSeverity" :value="detailItem.severity" />
+            <StatusBadge kind="incidentStatus" :value="detailItem.status" />
           </div>
-        </form>
+          <span class="text-theme-xs font-medium tabular-nums text-gray-500 dark:text-gray-400">
+            {{ formatDateTime(detailItem.reported_at) }}
+          </span>
+        </div>
+
+        <dl class="grid grid-cols-1 gap-3 text-theme-sm sm:grid-cols-2">
+          <div class="rounded-xl border border-gray-100 p-3 dark:border-gray-800">
+            <dt class="text-theme-xs text-gray-500 dark:text-gray-400">Vehículo</dt>
+            <dd class="mt-0.5 font-medium text-gray-900 dark:text-white">
+              {{ detailItem.vehicle?.license_plate || '—' }}
+              <span v-if="detailItem.vehicle" class="text-theme-xs font-normal text-gray-500">
+                ({{ detailItem.vehicle.brand }} {{ detailItem.vehicle.model }})
+              </span>
+            </dd>
+          </div>
+          <div class="rounded-xl border border-gray-100 p-3 dark:border-gray-800">
+            <dt class="text-theme-xs text-gray-500 dark:text-gray-400">Reportó</dt>
+            <dd class="mt-0.5 font-medium text-gray-900 dark:text-white">
+              {{ detailItem.reporter?.name || '—' }}
+            </dd>
+          </div>
+        </dl>
+
+        <div class="rounded-xl border border-gray-100 p-3.5 text-theme-sm dark:border-gray-800">
+          <p class="text-theme-xs font-medium text-gray-500 dark:text-gray-400">Descripción</p>
+          <p class="mt-1 whitespace-pre-line text-gray-900 dark:text-gray-100">
+            {{ detailItem.description || 'Sin descripción adicional.' }}
+          </p>
+        </div>
+
+        <div
+          v-if="detailItem.photo_url"
+          class="overflow-hidden rounded-xl border border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-950"
+        >
+          <img :src="detailItem.photo_url" alt="Evidencia de incidencia" class="max-h-64 w-full object-contain" />
+        </div>
       </div>
-    </div>
+
+      <template #footer>
+        <button type="button" class="fleet-btn-primary" @click="detailOpen = false">
+          Cerrar
+        </button>
+      </template>
+    </BaseModal>
   </AdminLayout>
 </template>
 
 <script setup>
-import Swal from 'sweetalert2';
-import { onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import AdminLayout from '@/components/layout/AdminLayout.vue';
+import BaseModal from '@/components/common/BaseModal.vue';
 import ComponentCard from '@/components/common/ComponentCard.vue';
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue';
+import StatusBadge from '@/components/common/StatusBadge.vue';
+import TableEmptyState from '@/components/common/TableEmptyState.vue';
+import TablePagination from '@/components/common/TablePagination.vue';
 import TableRowActions from '@/components/common/TableRowActions.vue';
 import { useAuth } from '../composables/useAuth';
+import { confirmDeleteDialog, showErrorAlert, showSuccessAlert } from '../utils/alerts';
 
 const { currentUser, isAdmin, canManageFleet, loadMe, logout } = useAuth();
 
 const incidents = ref([]);
 const vehicleOptions = ref([]);
-const meta = ref({ current_page: 1, last_page: 1 });
+const loading = ref(true);
+const saving = ref(false);
+const meta = ref({ current_page: 1, last_page: 1, total: 0, from: 0, to: 0 });
 const filterVehicleId = ref('');
 const filterStatus = ref('');
 const filterSeverity = ref('');
 const modalOpen = ref(false);
+const detailOpen = ref(false);
+const detailItem = ref(null);
 const editingId = ref(null);
 const previewUrl = ref('');
 const fileRef = ref(null);
@@ -289,24 +355,9 @@ const form = reactive({
   set_vehicle_maintenance: false,
 });
 
-const statusLabel = (s) => {
-  if (s === 'en_revision') return 'En revisión';
-  if (s === 'resuelta') return 'Resuelta';
-  return 'Abierta';
-};
-
-const statusBadgeClass = (s) => {
-  if (s === 'resuelta') return 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300';
-  if (s === 'en_revision') return 'bg-amber-500/15 text-amber-700 dark:text-amber-300';
-  return 'bg-rose-500/15 text-rose-700 dark:text-rose-300';
-};
-
-const severityBadgeClass = (sev) => {
-  if (sev === 'critica') return 'bg-rose-600/20 text-rose-800 dark:text-rose-300';
-  if (sev === 'alta') return 'bg-amber-500/20 text-amber-800 dark:text-amber-300';
-  if (sev === 'media') return 'bg-sky-500/15 text-sky-700 dark:text-sky-300';
-  return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300';
-};
+const hasFilters = computed(() =>
+  Boolean(filterVehicleId.value || filterStatus.value || filterSeverity.value),
+);
 
 const formatDateTime = (iso) => {
   if (!iso) return '';
@@ -319,16 +370,33 @@ const loadVehicles = async () => {
 };
 
 const loadIncidents = async (page = 1) => {
-  const params = { page, per_page: 15 };
-  if (filterVehicleId.value) params.vehicle_id = filterVehicleId.value;
-  if (filterStatus.value) params.status = filterStatus.value;
-  if (filterSeverity.value) params.severity = filterSeverity.value;
-  const { data } = await window.axios.get('/incidents', { params });
-  incidents.value = data.data;
-  meta.value = {
-    current_page: data.current_page,
-    last_page: data.last_page,
-  };
+  loading.value = true;
+  try {
+    const params = { page, per_page: 15 };
+    if (filterVehicleId.value) params.vehicle_id = filterVehicleId.value;
+    if (filterStatus.value) params.status = filterStatus.value;
+    if (filterSeverity.value) params.severity = filterSeverity.value;
+    const { data } = await window.axios.get('/incidents', { params });
+    incidents.value = data.data || [];
+    meta.value = {
+      current_page: data.current_page ?? 1,
+      last_page: data.last_page ?? 1,
+      total: data.total ?? incidents.value.length,
+      from: data.from ?? 0,
+      to: data.to ?? 0,
+    };
+  } catch (_) {
+    /* manejado por interceptor o estado actual */
+  } finally {
+    loading.value = false;
+  }
+};
+
+const resetFilters = () => {
+  filterVehicleId.value = '';
+  filterStatus.value = '';
+  filterSeverity.value = '';
+  loadIncidents(1);
 };
 
 const changePage = (page) => {
@@ -376,36 +444,9 @@ const openEdit = (inc) => {
   modalOpen.value = true;
 };
 
-const esc = (v) =>
-  String(v ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-
 const openView = (inc) => {
-  const pu = inc.photo_url && String(inc.photo_url).trim();
-  const photo =
-    pu && (/^https?:\/\//.test(pu) || pu.startsWith('/'))
-      ? `<p class="mt-3"><img src="${esc(pu)}" alt="" class="mx-auto h-40 max-w-full rounded-lg object-cover" /></p>`
-      : '';
-  Swal.fire({
-    title: esc(inc.title),
-    html: `
-      <div class="text-left text-theme-sm space-y-2 text-gray-700">
-        <p><strong>Vehículo:</strong> ${esc(inc.vehicle?.license_plate)} (${esc(inc.vehicle?.brand)} ${esc(inc.vehicle?.model)})</p>
-        <p><strong>Reportado:</strong> ${esc(formatDateTime(inc.reported_at))}</p>
-        <p><strong>Reportó:</strong> ${esc(inc.reporter?.name || '—')}</p>
-        <p><strong>Severidad:</strong> ${esc(inc.severity)}</p>
-        <p><strong>Estado:</strong> ${esc(statusLabel(inc.status))}</p>
-        <p><strong>Descripción:</strong> ${inc.description ? esc(inc.description) : '—'}</p>
-      </div>
-      ${photo}
-    `,
-    confirmButtonText: 'Cerrar',
-    showCloseButton: true,
-    width: 520,
-  });
+  detailItem.value = inc;
+  detailOpen.value = true;
 };
 
 const closeModal = () => {
@@ -414,6 +455,8 @@ const closeModal = () => {
 };
 
 const submit = async () => {
+  if (saving.value) return;
+  saving.value = true;
   try {
     if (editingId.value) {
       await window.axios.put(`/incidents/${editingId.value}`, {
@@ -432,31 +475,31 @@ const submit = async () => {
       if (fileRef.value) fd.append('photo', fileRef.value);
       await window.axios.post('/incidents', fd);
     }
-    await Swal.fire({ icon: 'success', title: 'Guardado', timer: 1400, showConfirmButton: false });
+    await showSuccessAlert('Guardado');
     closeModal();
     await loadIncidents(meta.value.current_page);
   } catch (err) {
-    const msg = err.response?.data?.message || 'No se pudo guardar';
-    await Swal.fire({ icon: 'error', title: 'Error', text: msg });
+    const errors = err.response?.data?.errors;
+    const firstErr = errors ? Object.values(errors).flat()[0] : null;
+    const msg = firstErr || err.response?.data?.message || 'No se pudo guardar';
+    await showErrorAlert('Error', msg);
+  } finally {
+    saving.value = false;
   }
 };
 
 const confirmDelete = async (inc) => {
-  const r = await Swal.fire({
-    icon: 'warning',
+  const r = await confirmDeleteDialog({
     title: '¿Eliminar incidencia?',
     text: inc.title,
-    showCancelButton: true,
-    confirmButtonText: 'Sí, eliminar',
-    cancelButtonText: 'Cancelar',
   });
   if (!r.isConfirmed) return;
   try {
     await window.axios.delete(`/incidents/${inc.id}`);
-    await Swal.fire({ icon: 'success', title: 'Eliminado', timer: 1200, showConfirmButton: false });
+    await showSuccessAlert('Eliminado');
     await loadIncidents(meta.value.current_page);
   } catch (err) {
-    await Swal.fire({ icon: 'error', title: err.response?.data?.message || 'No se pudo eliminar' });
+    await showErrorAlert('Error', err.response?.data?.message || 'No se pudo eliminar');
   }
 };
 

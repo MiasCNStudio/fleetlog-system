@@ -22,7 +22,7 @@ module.exports = {
         outfit: ['Outfit', 'system-ui', 'sans-serif'],
       },
       fontSize: {
-        'title-sm': ['30px', '38px'],
+        'title-sm': ['28px', '36px'],
         'theme-sm': ['14px', '20px'],
         'theme-xs': ['12px', '18px'],
       },
@@ -48,7 +48,8 @@ module.exports = {
         },
       },
       boxShadow: {
-        'theme-md': '0px 4px 8px -2px rgba(16, 24, 40, 0.1), 0px 2px 4px -2px rgba(16, 24, 40, 0.06)',
+        'theme-xs': '0px 1px 2px 0px rgba(16, 24, 40, 0.05)',
+        'theme-md': '0px 4px 12px -2px rgba(16, 24, 40, 0.08), 0px 2px 4px -2px rgba(16, 24, 40, 0.04)',
       },
     },
   },

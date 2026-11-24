@@ -30,7 +30,7 @@ function remoteSpaPlugin() {
   <script type="module" src="/resources/js/app.js"></script>
   <link rel="stylesheet" href="/resources/css/app.css">
 </head>
-<body class="bg-slate-100 text-slate-800">
+<body class="bg-slate-50 text-gray-900 antialiased dark:bg-gray-950 dark:text-gray-100">
   <div id="app"></div>
 </body>
 </html>`;

@@ -5,19 +5,94 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
   body {
-    @apply font-outfit text-gray-900 antialiased;
+    @apply bg-[#f4f6fb] font-outfit text-gray-900 antialiased selection:bg-brand-500/20 selection:text-brand-700 dark:bg-[#090e1a] dark:text-gray-100 dark:selection:text-brand-200;
   }
 }
 
 @layer components {
-  .menu-item {
-    @apply flex w-full items-center rounded-lg px-3 py-2 font-medium text-theme-sm transition-colors;
+  .fleet-card {
+    @apply rounded-2xl border border-gray-200/80 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_4px_16px_-4px_rgba(16,24,40,0.05)] dark:border-white/[0.08] dark:bg-[#111827] dark:shadow-[0_1px_0_0_rgba(255,255,255,0.03)_inset,0_10px_28px_-12px_rgba(0,0,0,0.55)];
   }
-  .menu-item-active {
-    @apply bg-brand-50 text-brand-500 dark:bg-brand-500/10 dark:text-brand-400;
+
+  .fleet-filter-bar {
+    @apply rounded-xl border border-gray-200/70 bg-gray-50/75 p-3.5 dark:border-white/[0.06] dark:bg-white/[0.02];
   }
-  .menu-item-inactive {
-    @apply text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/5;
+
+  .fleet-label {
+    @apply mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400;
   }
+
+  .fleet-field-label {
+    @apply mb-1.5 block text-theme-sm font-medium text-gray-700 dark:text-gray-300;
+  }
+
+  .fleet-input {
+    @apply h-10 w-full rounded-xl border border-gray-200 bg-white px-3.5 text-theme-sm text-gray-900 shadow-theme-xs transition-colors placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 dark:border-white/10 dark:bg-[#0b1220] dark:text-gray-100 dark:placeholder:text-gray-500 dark:focus:border-brand-400 dark:focus:ring-brand-400/20 dark:disabled:bg-gray-800/60;
+  }
+
+  .fleet-select {
+    @apply h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-theme-sm text-gray-900 shadow-theme-xs transition-colors focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 dark:border-white/10 dark:bg-[#0b1220] dark:text-gray-100 dark:focus:border-brand-400 dark:focus:ring-brand-400/20;
+  }
+
+  .fleet-textarea {
+    @apply w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-theme-sm text-gray-900 shadow-theme-xs transition-colors placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-white/10 dark:bg-[#0b1220] dark:text-gray-100 dark:placeholder:text-gray-500 dark:focus:border-brand-400 dark:focus:ring-brand-400/20;
+  }
+
+  .fleet-file {
+    @apply block w-full cursor-pointer rounded-xl border border-dashed border-gray-300 bg-gray-50/70 px-3 py-2 text-theme-sm text-gray-600 transition-colors file:mr-3 file:cursor-pointer file:rounded-lg file:border-0 file:bg-brand-50 file:px-3 file:py-1.5 file:text-theme-xs file:font-semibold file:text-brand-600 hover:border-brand-300 hover:file:bg-brand-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/30 dark:border-white/15 dark:bg-[#0b1220] dark:text-gray-300 dark:file:bg-brand-500/15 dark:file:text-brand-300 dark:hover:border-brand-500/50 dark:hover:file:bg-brand-500/25;
+  }
+
+  .fleet-btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-theme-sm font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:focus-visible:ring-offset-[#111827];
+  }
+
+  .fleet-btn-primary {
+    @apply fleet-btn bg-brand-500 text-white shadow-[0_1px_2px_rgba(70,95,255,0.25),0_4px_12px_-2px_rgba(70,95,255,0.35)] hover:bg-brand-600 active:bg-brand-700;
+  }
+
+  .fleet-btn-secondary {
+    @apply fleet-btn border border-gray-200 bg-white text-gray-700 shadow-theme-xs hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900 dark:border-white/10 dark:bg-[#161f32] dark:text-gray-200 dark:hover:border-white/20 dark:hover:bg-white/[0.07] dark:hover:text-white;
+  }
+
+  .fleet-btn-danger {
+    @apply fleet-btn bg-error-500 text-white shadow-theme-xs hover:bg-rose-600;
+  }
+
+  .fleet-table-wrap {
+    @apply overflow-hidden rounded-xl border border-gray-200/80 bg-white dark:border-white/[0.07] dark:bg-[#0b1220]/60;
+  }
+
+  .fleet-th {
+    @apply whitespace-nowrap bg-gray-50/90 px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:bg-white/[0.03] dark:text-gray-400 sm:px-3.5;
+  }
+
+  .fleet-td {
+    @apply px-3 py-3.5 text-theme-sm text-gray-700 dark:text-gray-200 sm:px-3.5;
+  }
+
+  .fleet-tr {
+    @apply transition-colors hover:bg-brand-50/30 dark:hover:bg-white/[0.025];
+  }
+}
+
+/* SweetAlert2 theme alignment */
+.swal2-popup.fleet-swal-popup {
+  @apply rounded-2xl border border-gray-200 bg-white font-outfit text-gray-900 shadow-xl dark:border-white/10 dark:bg-[#111827] dark:text-gray-100;
+}
+
+.swal2-title.fleet-swal-title {
+  @apply text-lg font-semibold text-gray-900 dark:text-white;
+}
+
+.swal2-html-container.fleet-swal-html {
+  @apply text-theme-sm text-gray-600 dark:text-gray-300;
 }

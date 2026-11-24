@@ -1,13 +1,13 @@
 <template>
   <div
-    class="flex items-center justify-end gap-0.5 sm:gap-1"
+    class="inline-flex items-center justify-end gap-1"
     role="group"
     :aria-label="groupLabel || 'Acciones de fila'"
   >
     <button
       v-if="showView"
       type="button"
-      class="inline-flex size-9 items-center justify-center rounded-lg text-sky-500 outline-none ring-brand-500/30 transition-colors hover:bg-sky-500/15 focus-visible:ring-2 dark:text-sky-400 dark:hover:bg-sky-400/15"
+      class="inline-flex size-8 items-center justify-center rounded-lg text-sky-600 transition-colors hover:bg-sky-500/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 dark:text-sky-400 dark:hover:bg-sky-400/15"
       :title="viewTitle"
       :aria-label="viewTitle"
       @click="$emit('view')"
@@ -24,7 +24,7 @@
     <button
       v-if="showEdit"
       type="button"
-      class="inline-flex size-9 items-center justify-center rounded-lg text-amber-500 outline-none ring-brand-500/30 transition-colors hover:bg-amber-500/15 focus-visible:ring-2 dark:text-amber-400 dark:hover:bg-amber-400/15"
+      class="inline-flex size-8 items-center justify-center rounded-lg text-amber-600 transition-colors hover:bg-amber-500/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 dark:text-amber-400 dark:hover:bg-amber-400/15"
       :title="editTitle"
       :aria-label="editTitle"
       @click="$emit('edit')"
@@ -40,7 +40,7 @@
     <button
       v-if="showDelete"
       type="button"
-      class="inline-flex size-9 items-center justify-center rounded-lg text-rose-500 outline-none ring-brand-500/30 transition-colors hover:bg-rose-500/15 focus-visible:ring-2 dark:text-rose-400 dark:hover:bg-rose-400/15"
+      class="inline-flex size-8 items-center justify-center rounded-lg text-rose-600 transition-colors hover:bg-rose-500/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 dark:text-rose-400 dark:hover:bg-rose-400/15"
       :title="deleteTitle"
       :aria-label="deleteTitle"
       @click="$emit('delete')"
@@ -62,7 +62,7 @@ defineProps({
   showView: { type: Boolean, default: true },
   showEdit: { type: Boolean, default: true },
   showDelete: { type: Boolean, default: true },
-  viewTitle: { type: String, default: 'Ver' },
+  viewTitle: { type: String, default: 'Ver detalle' },
   editTitle: { type: String, default: 'Editar' },
   deleteTitle: { type: String, default: 'Eliminar' },
 });

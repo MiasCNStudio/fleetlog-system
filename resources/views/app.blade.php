@@ -6,7 +6,7 @@
     <title>Fleetlog</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="bg-slate-100 text-slate-800">
+<body class="bg-slate-50 text-gray-900 antialiased dark:bg-gray-950 dark:text-gray-100">
     <div id="app"></div>
 </body>
 </html>

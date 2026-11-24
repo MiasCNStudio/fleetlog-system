@@ -1,34 +1,65 @@
 <template>
-  <AdminLayout header-title="Vehículos" :user-name="currentUser?.name" @logout="logout">
+  <AdminLayout header-title="Vehículos" :user-name="currentUser?.name" @logout="logout(true)">
     <PageBreadcrumb page-title="Vehículos" subtitle="Registro, estado operativo y odómetro de unidades.">
       <template v-if="canManageFleet" #actions>
-        <button
-          type="button"
-          class="rounded-lg bg-brand-500 px-4 py-2 text-theme-sm font-medium text-white hover:bg-brand-600"
-          @click="openCreate"
-        >
+        <button type="button" class="fleet-btn-primary" @click="openCreate">
+          <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+          </svg>
           Nuevo vehículo
         </button>
       </template>
     </PageBreadcrumb>
 
     <ComponentCard title="Listado" desc="Estado, kilometraje actual, placa, marca y modelo.">
-      <div class="mb-4 flex flex-wrap items-end gap-3">
-        <div>
-          <label class="mb-1 block text-theme-xs font-medium text-gray-600 dark:text-gray-400">Buscar</label>
-          <input
-            v-model="searchQuery"
-            type="text"
-            placeholder="Placa, marca o modelo..."
-            class="rounded-lg border border-gray-200 px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-            @keyup.enter="loadVehicles(1)"
-          />
+      <template #header-extra>
+        <span class="rounded-lg bg-gray-100 px-2.5 py-1 text-theme-xs font-semibold tabular-nums text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+          {{ meta.total }} {{ meta.total === 1 ? 'unidad' : 'unidades' }}
+        </span>
+      </template>
+
+      <div class="fleet-filter-bar grid grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:items-end">
+        <div class="w-full sm:w-72">
+          <label for="vehicles-search" class="fleet-label">Buscar</label>
+          <div class="relative">
+            <svg
+              class="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-gray-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="1.8"
+              aria-hidden="true"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+            </svg>
+            <input
+              id="vehicles-search"
+              v-model="searchQuery"
+              type="text"
+              placeholder="Placa, marca o modelo…"
+              class="fleet-input pl-10 pr-9"
+              @keyup.enter="loadVehicles(1)"
+            />
+            <button
+              v-if="searchQuery"
+              type="button"
+              class="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+              aria-label="Limpiar búsqueda"
+              @click="clearSearch"
+            >
+              <svg class="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
-        <div>
-          <label class="mb-1 block text-theme-xs font-medium text-gray-600 dark:text-gray-400">Estado</label>
+
+        <div class="w-full sm:w-48">
+          <label for="vehicles-filter-status" class="fleet-label">Estado</label>
           <select
+            id="vehicles-filter-status"
             v-model="filterStatus"
-            class="rounded-lg border border-gray-200 px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+            class="fleet-select"
             @change="loadVehicles(1)"
           >
             <option value="">Todos</option>
@@ -37,63 +68,94 @@
             <option value="mantenimiento">Mantenimiento</option>
           </select>
         </div>
+
+        <button type="button" class="fleet-btn-secondary h-10 px-3.5 text-theme-xs" @click="loadVehicles(1)">
+          Buscar
+        </button>
+
+        <button
+          v-if="hasFilters"
+          type="button"
+          class="fleet-btn-secondary h-10 px-3.5 text-theme-xs"
+          @click="resetFilters"
+        >
+          Limpiar filtros
+        </button>
       </div>
 
-      <div class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+      <div class="fleet-table-wrap">
         <div class="max-w-full overflow-x-auto">
-          <table class="min-w-full">
+          <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
             <thead>
-              <tr class="border-b border-gray-200 dark:border-gray-700">
-                <th class="px-5 py-3 text-left sm:px-6">
-                  <p class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Imagen</p>
-                </th>
-                <th class="px-5 py-3 text-left sm:px-6">
-                  <p class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Placa</p>
-                </th>
-                <th class="px-5 py-3 text-left sm:px-6">
-                  <p class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Vehículo</p>
-                </th>
-                <th class="px-5 py-3 text-left sm:px-6">
-                  <p class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Estado</p>
-                </th>
-                <th class="px-5 py-3 text-left sm:px-6">
-                  <p class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Odómetro</p>
-                </th>
-                <th class="px-5 py-3 text-right sm:px-6">
-                  <p class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Acciones</p>
-                </th>
+              <tr>
+                <th scope="col" class="fleet-th">Imagen</th>
+                <th scope="col" class="fleet-th">Placa</th>
+                <th scope="col" class="fleet-th">Vehículo</th>
+                <th scope="col" class="fleet-th">Estado</th>
+                <th scope="col" class="fleet-th">Odómetro</th>
+                <th scope="col" class="fleet-th text-right">Acciones</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-              <tr v-for="v in vehicles" :key="v.id" class="border-t border-gray-100 dark:border-gray-800">
-                <td class="px-5 py-4 sm:px-6">
-                  <div class="h-14 w-20 overflow-hidden rounded-lg bg-gray-100">
+            <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+              <tr v-if="loading" v-for="n in 5" :key="`sk-${n}`" class="animate-pulse">
+                <td class="fleet-td"><div class="h-12 w-16 rounded-lg bg-gray-200 dark:bg-gray-800" /></td>
+                <td v-for="c in 5" :key="c" class="fleet-td">
+                  <div class="h-4 w-full max-w-[120px] rounded bg-gray-200 dark:bg-gray-800" />
+                </td>
+              </tr>
+
+              <tr v-else-if="vehicles.length === 0">
+                <td colspan="6" class="p-0">
+                  <TableEmptyState
+                    icon="truck"
+                    :has-filters="hasFilters"
+                    :title="hasFilters ? 'No se encontraron vehículos' : 'Sin vehículos registrados'"
+                    :description="
+                      hasFilters
+                        ? 'Ajusta la búsqueda o el estado para ver unidades.'
+                        : 'Agrega el primer vehículo para comenzar a operar la flotilla.'
+                    "
+                    @reset="resetFilters"
+                  />
+                </td>
+              </tr>
+
+              <tr v-for="v in vehicles" v-else :key="v.id" class="fleet-tr">
+                <td class="fleet-td whitespace-nowrap">
+                  <div class="flex h-12 w-16 items-center justify-center overflow-hidden rounded-xl border border-gray-200/80 bg-gray-100 text-gray-400 dark:border-gray-800 dark:bg-gray-800 dark:text-gray-500">
                     <img
                       v-if="v.photo_url"
                       :src="v.photo_url"
                       :alt="v.license_plate"
                       class="h-full w-full object-cover"
                     />
+                    <svg v-else class="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z" />
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1" />
+                    </svg>
                   </div>
                 </td>
-                <td class="px-5 py-4 font-medium text-gray-800 text-theme-sm dark:text-white/90 sm:px-6">
-                  {{ v.license_plate }}
-                </td>
-                <td class="px-5 py-4 text-theme-sm text-gray-600 dark:text-gray-300 sm:px-6">
-                  {{ v.brand }} {{ v.model }} · {{ v.color }}
-                </td>
-                <td class="px-5 py-4 sm:px-6">
-                  <span
-                    class="inline-flex rounded-full px-2.5 py-0.5 text-theme-xs font-medium"
-                    :class="statusBadgeClass(v.status)"
-                  >
-                    {{ statusLabel(v.status) }}
+                <td class="fleet-td whitespace-nowrap">
+                  <span class="rounded-md bg-gray-100 px-2.5 py-1 font-mono text-theme-xs font-semibold text-gray-900 dark:bg-gray-800 dark:text-white">
+                    {{ v.license_plate }}
                   </span>
                 </td>
-                <td class="px-5 py-4 text-theme-sm text-gray-600 dark:text-gray-300 sm:px-6">
-                  {{ (v.current_odometer ?? 0).toLocaleString() }} km
+                <td class="fleet-td">
+                  <p class="font-medium text-gray-900 dark:text-white">{{ v.brand }} {{ v.model }}</p>
+                  <p class="text-theme-xs text-gray-500 dark:text-gray-400">{{ v.color }}</p>
                 </td>
-                <td class="px-5 py-4 text-right sm:px-6">
+                <td class="fleet-td whitespace-nowrap">
+                  <StatusBadge kind="vehicleStatus" :value="v.status" />
+                </td>
+                <td class="fleet-td whitespace-nowrap tabular-nums">
+                  <p class="font-medium text-gray-900 dark:text-white">
+                    {{ (v.current_odometer ?? 0).toLocaleString() }} km
+                  </p>
+                  <p v-if="v.maintenance_interval_km" class="text-[11px] text-gray-500 dark:text-gray-400">
+                    Mant. c/ {{ Number(v.maintenance_interval_km).toLocaleString() }} km
+                  </p>
+                </td>
+                <td class="fleet-td whitespace-nowrap text-right">
                   <TableRowActions
                     :group-label="`Acciones para ${v.license_plate}`"
                     :show-edit="canManageFleet"
@@ -107,161 +169,189 @@
             </tbody>
           </table>
         </div>
-        <div
-          v-if="meta.last_page > 1"
-          class="flex items-center justify-between border-t border-gray-100 px-4 py-3 dark:border-gray-800"
-        >
-          <p class="text-theme-sm text-gray-500">
-            Página {{ meta.current_page }} de {{ meta.last_page }}
-          </p>
-          <div class="flex gap-2">
-            <button
-              type="button"
-              class="rounded border border-gray-200 px-3 py-1 text-theme-sm dark:border-gray-700"
-              :disabled="meta.current_page <= 1"
-              @click="changePage(meta.current_page - 1)"
-            >
-              Anterior
-            </button>
-            <button
-              type="button"
-              class="rounded border border-gray-200 px-3 py-1 text-theme-sm dark:border-gray-700"
-              :disabled="meta.current_page >= meta.last_page"
-              @click="changePage(meta.current_page + 1)"
-            >
-              Siguiente
-            </button>
-          </div>
-        </div>
+
+        <TablePagination
+          :current-page="meta.current_page"
+          :last-page="meta.last_page"
+          :total="meta.total"
+          :from="meta.from"
+          :to="meta.to"
+          @change="changePage"
+        />
       </div>
     </ComponentCard>
 
-    <div
-      v-if="modalOpen"
-      class="fixed inset-0 z-[100000] flex items-center justify-center bg-black/50 p-4"
-      @click.self="closeModal"
+    <BaseModal
+      :open="modalOpen"
+      :title="editingId ? 'Editar vehículo' : 'Nuevo vehículo'"
+      subtitle="Completa los datos técnicos y el estado operativo de la unidad."
+      @close="closeModal"
     >
-      <div class="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-theme-md dark:bg-gray-900">
-        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
-          {{ editingId ? 'Editar vehículo' : 'Nuevo vehículo' }}
-        </h2>
-        <form class="mt-4 space-y-4" @submit.prevent="submit">
-          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label class="mb-1 block text-theme-sm font-medium text-gray-700 dark:text-gray-300">Placa</label>
-              <input
-                v-model="form.license_plate"
-                type="text"
-                class="w-full rounded-lg border border-gray-200 px-3 py-2 text-theme-sm uppercase dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-                required
-              />
-            </div>
-            <div>
-              <label class="mb-1 block text-theme-sm font-medium text-gray-700 dark:text-gray-300">Estado</label>
-              <select
-                v-model="form.status"
-                class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-              >
-                <option value="disponible">Disponible</option>
-                <option value="en_ruta">En ruta</option>
-                <option value="mantenimiento">Mantenimiento</option>
-              </select>
-            </div>
-          </div>
-          <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <div>
-              <label class="mb-1 block text-theme-sm font-medium text-gray-700 dark:text-gray-300">Marca</label>
-              <input
-                v-model="form.brand"
-                type="text"
-                class="w-full rounded-lg border border-gray-200 px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-                required
-              />
-            </div>
-            <div>
-              <label class="mb-1 block text-theme-sm font-medium text-gray-700 dark:text-gray-300">Modelo</label>
-              <input
-                v-model="form.model"
-                type="text"
-                class="w-full rounded-lg border border-gray-200 px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-                required
-              />
-            </div>
-            <div>
-              <label class="mb-1 block text-theme-sm font-medium text-gray-700 dark:text-gray-300">Color</label>
-              <input
-                v-model="form.color"
-                type="text"
-                class="w-full rounded-lg border border-gray-200 px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-                required
-              />
-            </div>
-          </div>
-          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label class="mb-1 block text-theme-sm font-medium text-gray-700 dark:text-gray-300">Odómetro actual (km)</label>
-              <input
-                v-model.number="form.current_odometer"
-                type="number"
-                min="0"
-                class="w-full rounded-lg border border-gray-200 px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-              />
-            </div>
-            <div>
-              <label class="mb-1 block text-theme-sm font-medium text-gray-700 dark:text-gray-300">Mant. cada (km, opcional)</label>
-              <input
-                v-model.number="form.maintenance_interval_km"
-                type="number"
-                min="500"
-                placeholder="Ej. 5000"
-                class="w-full rounded-lg border border-gray-200 px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-              />
-            </div>
+      <form id="vehicle-form" class="space-y-4" @submit.prevent="submit">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label for="vehicle-plate" class="fleet-field-label">
+              Placa <span class="text-rose-500">*</span>
+            </label>
+            <input
+              id="vehicle-plate"
+              v-model="form.license_plate"
+              type="text"
+              placeholder="Ej. HAA-1234"
+              class="fleet-input font-mono uppercase"
+              required
+            />
           </div>
           <div>
-            <label class="mb-1 block text-theme-sm font-medium text-gray-700 dark:text-gray-300">Imagen</label>
-            <input type="file" accept="image/*" class="w-full text-theme-sm" @change="onFile" />
-            <div v-if="previewUrl" class="mt-2">
-              <img :src="previewUrl" alt="Vista previa" class="h-28 w-40 rounded-lg object-cover" />
-            </div>
+            <label for="vehicle-status" class="fleet-field-label">Estado</label>
+            <select id="vehicle-status" v-model="form.status" class="fleet-select">
+              <option value="disponible">Disponible</option>
+              <option value="en_ruta">En ruta</option>
+              <option value="mantenimiento">Mantenimiento</option>
+            </select>
           </div>
-          <div class="flex justify-end gap-2 pt-2">
-            <button
-              type="button"
-              class="rounded-lg border border-gray-200 px-4 py-2 text-theme-sm dark:border-gray-700"
-              @click="closeModal"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              class="rounded-lg bg-brand-500 px-4 py-2 text-theme-sm font-medium text-white hover:bg-brand-600"
-            >
-              Guardar
-            </button>
+        </div>
+
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div>
+            <label for="vehicle-brand" class="fleet-field-label">
+              Marca <span class="text-rose-500">*</span>
+            </label>
+            <input id="vehicle-brand" v-model="form.brand" type="text" placeholder="Toyota" class="fleet-input" required />
           </div>
-        </form>
+          <div>
+            <label for="vehicle-model" class="fleet-field-label">
+              Modelo <span class="text-rose-500">*</span>
+            </label>
+            <input id="vehicle-model" v-model="form.model" type="text" placeholder="Hilux" class="fleet-input" required />
+          </div>
+          <div>
+            <label for="vehicle-color" class="fleet-field-label">
+              Color <span class="text-rose-500">*</span>
+            </label>
+            <input id="vehicle-color" v-model="form.color" type="text" placeholder="Blanco" class="fleet-input" required />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label for="vehicle-odometer" class="fleet-field-label">Odómetro actual (km)</label>
+            <input
+              id="vehicle-odometer"
+              v-model.number="form.current_odometer"
+              type="number"
+              min="0"
+              class="fleet-input tabular-nums"
+            />
+          </div>
+          <div>
+            <label for="vehicle-maint" class="fleet-field-label">Mant. cada (km, opcional)</label>
+            <input
+              id="vehicle-maint"
+              v-model.number="form.maintenance_interval_km"
+              type="number"
+              min="500"
+              placeholder="Ej. 5000"
+              class="fleet-input tabular-nums"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label for="vehicle-photo" class="fleet-field-label">Imagen</label>
+          <input id="vehicle-photo" type="file" accept="image/*" class="fleet-file" @change="onFile" />
+          <div v-if="previewUrl" class="mt-3">
+            <img :src="previewUrl" alt="Vista previa" class="h-28 w-44 rounded-xl border border-gray-200 object-cover dark:border-gray-700" />
+          </div>
+        </div>
+      </form>
+
+      <template #footer>
+        <button type="button" class="fleet-btn-secondary" @click="closeModal">
+          Cancelar
+        </button>
+        <button type="submit" form="vehicle-form" :disabled="saving" class="fleet-btn-primary">
+          {{ saving ? 'Guardando…' : 'Guardar' }}
+        </button>
+      </template>
+    </BaseModal>
+
+    <BaseModal
+      :open="detailOpen"
+      :title="detailItem?.license_plate || 'Detalle de vehículo'"
+      :subtitle="detailItem ? `${detailItem.brand} ${detailItem.model}` : ''"
+      @close="detailOpen = false"
+    >
+      <div v-if="detailItem" class="space-y-4">
+        <div
+          v-if="detailItem.photo_url"
+          class="overflow-hidden rounded-xl border border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-950"
+        >
+          <img :src="detailItem.photo_url" :alt="detailItem.license_plate" class="h-48 w-full object-cover" />
+        </div>
+
+        <div class="flex items-center justify-between rounded-xl border border-gray-200/80 bg-gray-50/80 px-4 py-3 dark:border-gray-800 dark:bg-white/[0.02]">
+          <span class="text-theme-xs font-medium text-gray-500 dark:text-gray-400">Estado operativo</span>
+          <StatusBadge kind="vehicleStatus" :value="detailItem.status" />
+        </div>
+
+        <dl class="grid grid-cols-1 gap-3 text-theme-sm sm:grid-cols-2">
+          <div class="rounded-xl border border-gray-100 p-3 dark:border-gray-800">
+            <dt class="text-theme-xs text-gray-500 dark:text-gray-400">Marca y modelo</dt>
+            <dd class="mt-0.5 font-medium text-gray-900 dark:text-white">{{ detailItem.brand }} {{ detailItem.model }}</dd>
+          </div>
+          <div class="rounded-xl border border-gray-100 p-3 dark:border-gray-800">
+            <dt class="text-theme-xs text-gray-500 dark:text-gray-400">Color</dt>
+            <dd class="mt-0.5 font-medium text-gray-900 dark:text-white">{{ detailItem.color }}</dd>
+          </div>
+          <div class="rounded-xl border border-gray-100 p-3 dark:border-gray-800">
+            <dt class="text-theme-xs text-gray-500 dark:text-gray-400">Odómetro actual</dt>
+            <dd class="mt-0.5 font-medium tabular-nums text-gray-900 dark:text-white">
+              {{ (detailItem.current_odometer ?? 0).toLocaleString() }} km
+            </dd>
+          </div>
+          <div class="rounded-xl border border-gray-100 p-3 dark:border-gray-800">
+            <dt class="text-theme-xs text-gray-500 dark:text-gray-400">Intervalo de mantenimiento</dt>
+            <dd class="mt-0.5 font-medium tabular-nums text-gray-900 dark:text-white">
+              {{ detailItem.maintenance_interval_km ? `Cada ${Number(detailItem.maintenance_interval_km).toLocaleString()} km` : 'No definido' }}
+            </dd>
+          </div>
+        </dl>
       </div>
-    </div>
+
+      <template #footer>
+        <button type="button" class="fleet-btn-primary" @click="detailOpen = false">
+          Cerrar
+        </button>
+      </template>
+    </BaseModal>
   </AdminLayout>
 </template>
 
 <script setup>
-import Swal from 'sweetalert2';
-import { onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import AdminLayout from '@/components/layout/AdminLayout.vue';
+import BaseModal from '@/components/common/BaseModal.vue';
 import ComponentCard from '@/components/common/ComponentCard.vue';
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue';
+import StatusBadge from '@/components/common/StatusBadge.vue';
+import TableEmptyState from '@/components/common/TableEmptyState.vue';
+import TablePagination from '@/components/common/TablePagination.vue';
 import TableRowActions from '@/components/common/TableRowActions.vue';
 import { useAuth } from '../composables/useAuth';
+import { confirmDeleteDialog, showErrorAlert, showSuccessAlert } from '../utils/alerts';
 
 const { currentUser, isAdmin, canManageFleet, loadMe, logout } = useAuth();
 
 const vehicles = ref([]);
-const meta = ref({ current_page: 1, last_page: 1 });
+const loading = ref(true);
+const saving = ref(false);
+const meta = ref({ current_page: 1, last_page: 1, total: 0, from: 0, to: 0 });
 const searchQuery = ref('');
 const filterStatus = ref('');
 const modalOpen = ref(false);
+const detailOpen = ref(false);
+const detailItem = ref(null);
 const editingId = ref(null);
 const previewUrl = ref('');
 const fileRef = ref(null);
@@ -276,28 +366,39 @@ const form = reactive({
   maintenance_interval_km: null,
 });
 
-const statusLabel = (s) => {
-  if (s === 'en_ruta') return 'En ruta';
-  if (s === 'mantenimiento') return 'Mantenimiento';
-  return 'Disponible';
-};
-
-const statusBadgeClass = (s) => {
-  if (s === 'en_ruta') return 'bg-amber-500/15 text-amber-700 dark:text-amber-300';
-  if (s === 'mantenimiento') return 'bg-rose-500/15 text-rose-700 dark:text-rose-300';
-  return 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300';
-};
+const hasFilters = computed(() => Boolean(searchQuery.value.trim() || filterStatus.value));
 
 const loadVehicles = async (page = 1) => {
-  const params = { page };
-  if (searchQuery.value.trim()) params.search = searchQuery.value.trim();
-  if (filterStatus.value) params.status = filterStatus.value;
-  const { data } = await window.axios.get('/vehicles', { params });
-  vehicles.value = data.data;
-  meta.value = {
-    current_page: data.current_page,
-    last_page: data.last_page,
-  };
+  loading.value = true;
+  try {
+    const params = { page };
+    if (searchQuery.value.trim()) params.search = searchQuery.value.trim();
+    if (filterStatus.value) params.status = filterStatus.value;
+    const { data } = await window.axios.get('/vehicles', { params });
+    vehicles.value = data.data || [];
+    meta.value = {
+      current_page: data.current_page ?? 1,
+      last_page: data.last_page ?? 1,
+      total: data.total ?? vehicles.value.length,
+      from: data.from ?? 0,
+      to: data.to ?? 0,
+    };
+  } catch (_) {
+    /* manejado por interceptor o estado actual */
+  } finally {
+    loading.value = false;
+  }
+};
+
+const clearSearch = () => {
+  searchQuery.value = '';
+  loadVehicles(1);
+};
+
+const resetFilters = () => {
+  searchQuery.value = '';
+  filterStatus.value = '';
+  loadVehicles(1);
 };
 
 const changePage = (page) => {
@@ -348,34 +449,9 @@ const openEdit = (v) => {
   modalOpen.value = true;
 };
 
-const esc = (v) =>
-  String(v ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-
 const openView = (v) => {
-  const pu = v.photo_url && String(v.photo_url).trim();
-  const photo =
-    pu && (/^https?:\/\//.test(pu) || pu.startsWith('/'))
-      ? `<p class="mt-3"><img src="${esc(pu)}" alt="" class="mx-auto h-32 max-w-full rounded-lg object-cover" /></p>`
-      : '';
-  Swal.fire({
-    title: esc(v.license_plate),
-    html: `
-      <div class="text-left text-theme-sm space-y-2 text-gray-700">
-        <p><strong>Color:</strong> ${esc(v.color)}</p>
-        <p><strong>Marca:</strong> ${esc(v.brand)}</p>
-        <p><strong>Modelo:</strong> ${esc(v.model)}</p>
-        <p><strong>Estado:</strong> ${esc(statusLabel(v.status))}</p>
-        <p><strong>Odómetro:</strong> ${(v.current_odometer ?? 0).toLocaleString()} km</p>
-      </div>
-      ${photo}
-    `,
-    confirmButtonText: 'Cerrar',
-    showCloseButton: true,
-  });
+  detailItem.value = v;
+  detailOpen.value = true;
 };
 
 const closeModal = () => {
@@ -401,37 +477,39 @@ const buildFormData = () => {
 };
 
 const submit = async () => {
+  if (saving.value) return;
+  saving.value = true;
   try {
     if (editingId.value) {
       await window.axios.post(`/vehicles/${editingId.value}`, buildFormData());
     } else {
       await window.axios.post('/vehicles', buildFormData());
     }
-    await Swal.fire({ icon: 'success', title: 'Guardado', timer: 1400, showConfirmButton: false });
+    await showSuccessAlert('Guardado');
     closeModal();
     await loadVehicles(meta.value.current_page);
   } catch (err) {
-    const msg = err.response?.data?.message || 'No se pudo guardar';
-    await Swal.fire({ icon: 'error', title: 'Error', text: msg });
+    const errors = err.response?.data?.errors;
+    const firstErr = errors ? Object.values(errors).flat()[0] : null;
+    const msg = firstErr || err.response?.data?.message || 'No se pudo guardar';
+    await showErrorAlert('Error', msg);
+  } finally {
+    saving.value = false;
   }
 };
 
 const confirmDelete = async (v) => {
-  const r = await Swal.fire({
-    icon: 'warning',
+  const r = await confirmDeleteDialog({
     title: '¿Eliminar vehículo?',
     text: v.license_plate,
-    showCancelButton: true,
-    confirmButtonText: 'Sí, eliminar',
-    cancelButtonText: 'Cancelar',
   });
   if (!r.isConfirmed) return;
   try {
     await window.axios.delete(`/vehicles/${v.id}`);
-    await Swal.fire({ icon: 'success', title: 'Eliminado', timer: 1200, showConfirmButton: false });
+    await showSuccessAlert('Eliminado');
     await loadVehicles(meta.value.current_page);
   } catch (err) {
-    await Swal.fire({ icon: 'error', title: err.response?.data?.message || 'No se pudo eliminar' });
+    await showErrorAlert('Error', err.response?.data?.message || 'No se pudo eliminar');
   }
 };
 

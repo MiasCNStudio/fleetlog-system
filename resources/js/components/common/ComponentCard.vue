@@ -1,20 +1,20 @@
 <template>
-  <div
-    :class="[
-      'rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]',
-      className,
-    ]"
-  >
-    <div class="px-6 py-5">
-      <h3 class="text-base font-medium text-gray-800 dark:text-white/90">
-        {{ title }}
-      </h3>
-      <p v-if="desc" class="mt-1 text-theme-sm text-gray-500 dark:text-gray-400">
-        {{ desc }}
-      </p>
+  <div :class="['fleet-card', className]">
+    <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4 sm:px-6">
+      <div class="min-w-0">
+        <h3 class="text-base font-semibold text-gray-900 dark:text-white">
+          {{ title }}
+        </h3>
+        <p v-if="desc" class="mt-0.5 text-theme-sm text-gray-500 dark:text-gray-400">
+          {{ desc }}
+        </p>
+      </div>
+      <div v-if="$slots['header-extra']" class="flex shrink-0 items-center gap-2">
+        <slot name="header-extra" />
+      </div>
     </div>
     <div class="border-t border-gray-100 p-4 dark:border-gray-800 sm:p-6">
-      <div class="space-y-5">
+      <div class="space-y-4">
         <slot />
       </div>
     </div>

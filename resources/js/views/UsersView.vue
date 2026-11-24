@@ -1,34 +1,65 @@
 <template>
-  <AdminLayout header-title="Usuarios" :user-name="currentUser?.name" @logout="logout">
+  <AdminLayout header-title="Usuarios" :user-name="currentUser?.name" @logout="logout(true)">
     <PageBreadcrumb page-title="Usuarios" subtitle="Gestión de funcionarios, despachadores y motoristas">
       <template #actions>
-        <button
-          type="button"
-          class="rounded-lg bg-brand-500 px-4 py-2 text-theme-sm font-medium text-white hover:bg-brand-600"
-          @click="openCreate"
-        >
+        <button type="button" class="fleet-btn-primary" @click="openCreate">
+          <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+          </svg>
           Nuevo usuario
         </button>
       </template>
     </PageBreadcrumb>
 
     <ComponentCard title="Listado" desc="Filtra y administra el personal y sus roles en el sistema.">
-      <div class="mb-4 flex flex-wrap items-end gap-3">
-        <div>
-          <label class="mb-1 block text-theme-xs font-medium text-gray-600 dark:text-gray-400">Buscar</label>
-          <input
-            v-model="searchQuery"
-            type="text"
-            placeholder="Nombre, correo o código..."
-            class="rounded-lg border border-gray-200 px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-            @keyup.enter="loadUsers(1)"
-          />
+      <template #header-extra>
+        <span class="rounded-lg bg-gray-100 px-2.5 py-1 text-theme-xs font-semibold tabular-nums text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+          {{ meta.total }} {{ meta.total === 1 ? 'usuario' : 'usuarios' }}
+        </span>
+      </template>
+
+      <div class="fleet-filter-bar grid grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:items-end">
+        <div class="w-full sm:w-72">
+          <label for="users-search" class="fleet-label">Buscar</label>
+          <div class="relative">
+            <svg
+              class="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-gray-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="1.8"
+              aria-hidden="true"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+            </svg>
+            <input
+              id="users-search"
+              v-model="searchQuery"
+              type="text"
+              placeholder="Nombre, correo o código…"
+              class="fleet-input pl-10 pr-9"
+              @keyup.enter="loadUsers(1)"
+            />
+            <button
+              v-if="searchQuery"
+              type="button"
+              class="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+              aria-label="Limpiar búsqueda"
+              @click="clearSearch"
+            >
+              <svg class="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
-        <div>
-          <label class="mb-1 block text-theme-xs font-medium text-gray-600 dark:text-gray-400">Rol</label>
+
+        <div class="w-full sm:w-48">
+          <label for="users-filter-role" class="fleet-label">Rol</label>
           <select
+            id="users-filter-role"
             v-model="filterRole"
-            class="rounded-lg border border-gray-200 px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+            class="fleet-select"
             @change="loadUsers(1)"
           >
             <option value="">Todos</option>
@@ -37,68 +68,80 @@
             <option value="motorista">Motorista</option>
           </select>
         </div>
+
+        <button type="button" class="fleet-btn-secondary h-10 px-3.5 text-theme-xs" @click="loadUsers(1)">
+          Buscar
+        </button>
+
+        <button
+          v-if="hasFilters"
+          type="button"
+          class="fleet-btn-secondary h-10 px-3.5 text-theme-xs"
+          @click="resetFilters"
+        >
+          Limpiar filtros
+        </button>
       </div>
 
-      <div class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+      <div class="fleet-table-wrap">
         <div class="max-w-full overflow-x-auto">
-          <table class="min-w-full">
+          <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
             <thead>
-              <tr class="border-b border-gray-200 dark:border-gray-700">
-                <th class="px-5 py-3 text-left sm:px-6">
-                  <p class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Persona</p>
-                </th>
-                <th class="px-5 py-3 text-left sm:px-6">
-                  <p class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Correo</p>
-                </th>
-                <th class="px-5 py-3 text-left sm:px-6">
-                  <p class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Tipo</p>
-                </th>
-                <th class="px-5 py-3 text-left sm:px-6">
-                  <p class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Rol</p>
-                </th>
-                <th class="px-5 py-3 text-left sm:px-6">
-                  <p class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Código</p>
-                </th>
-                <th class="px-5 py-3 text-right sm:px-6">
-                  <p class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Acciones</p>
-                </th>
+              <tr>
+                <th scope="col" class="fleet-th">Persona</th>
+                <th scope="col" class="fleet-th">Correo</th>
+                <th scope="col" class="fleet-th">Tipo</th>
+                <th scope="col" class="fleet-th">Rol</th>
+                <th scope="col" class="fleet-th">Código</th>
+                <th scope="col" class="fleet-th text-right">Acciones</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-              <tr v-for="u in users" :key="u.id" class="border-t border-gray-100 dark:border-gray-800">
-                <td class="px-5 py-4 sm:px-6">
+            <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+              <tr v-if="loading" v-for="n in 5" :key="`sk-${n}`" class="animate-pulse">
+                <td v-for="c in 6" :key="c" class="fleet-td">
+                  <div class="h-4 w-full max-w-[130px] rounded bg-gray-200 dark:bg-gray-800" />
+                </td>
+              </tr>
+
+              <tr v-else-if="users.length === 0">
+                <td colspan="6" class="p-0">
+                  <TableEmptyState
+                    icon="users"
+                    :has-filters="hasFilters"
+                    :title="hasFilters ? 'No se encontraron usuarios' : 'Sin usuarios registrados'"
+                    :description="
+                      hasFilters
+                        ? 'Ajusta el texto de búsqueda o el rol seleccionado.'
+                        : 'Agrega funcionarios, despachadores o motoristas para usar Fleetlog.'
+                    "
+                    @reset="resetFilters"
+                  />
+                </td>
+              </tr>
+
+              <tr v-for="u in users" v-else :key="u.id" class="fleet-tr">
+                <td class="fleet-td whitespace-nowrap">
                   <div class="flex items-center gap-3">
-                    <div class="h-10 w-10 overflow-hidden rounded-full bg-gray-100">
+                    <div class="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-gray-200 bg-brand-50 text-theme-xs font-semibold text-brand-600 dark:border-gray-700 dark:bg-brand-500/15 dark:text-brand-300">
                       <img v-if="u.photo_url" :src="u.photo_url" :alt="u.name" class="h-full w-full object-cover" />
+                      <span v-else>{{ userInitials(u.name) }}</span>
                     </div>
-                    <span class="font-medium text-gray-800 text-theme-sm dark:text-white/90">{{ u.name }}</span>
+                    <span class="font-medium text-gray-900 dark:text-white">{{ u.name }}</span>
                   </div>
                 </td>
-                <td class="px-5 py-4 text-theme-sm text-gray-600 dark:text-gray-300 sm:px-6">{{ u.email }}</td>
-                <td class="px-5 py-4 sm:px-6">
-                  <span
-                    class="rounded-full px-2 py-0.5 text-theme-xs font-medium"
-                    :class="
-                      u.person_type === 'motorista'
-                        ? 'bg-brand-50 text-brand-700 dark:bg-brand-500/15 dark:text-brand-400'
-                        : 'bg-success-50 text-success-700 dark:bg-success-500/15 dark:text-success-500'
-                    "
-                  >
-                    {{ u.person_type === 'motorista' ? 'Motorista' : 'Funcionario' }}
-                  </span>
+                <td class="fleet-td whitespace-nowrap text-gray-600 dark:text-gray-300">
+                  {{ u.email }}
                 </td>
-                <td class="px-5 py-4 sm:px-6">
-                  <span
-                    class="rounded-full px-2 py-0.5 text-theme-xs font-medium capitalize"
-                    :class="roleBadgeClass(u.role)"
-                  >
-                    {{ u.role || 'motorista' }}
-                  </span>
+                <td class="fleet-td whitespace-nowrap">
+                  <StatusBadge kind="userType" :value="u.person_type || 'funcionario'" />
                 </td>
-                <td class="px-5 py-4 text-theme-sm text-gray-600 dark:text-gray-300 sm:px-6">
+                <td class="fleet-td whitespace-nowrap">
+                  <StatusBadge kind="userRole" :value="u.role || 'motorista'" />
+                </td>
+                <td class="fleet-td whitespace-nowrap font-mono text-theme-xs text-gray-600 dark:text-gray-300">
                   {{ u.driver_code || '—' }}
                 </td>
-                <td class="px-5 py-4 text-right sm:px-6">
+                <td class="fleet-td whitespace-nowrap text-right">
                   <TableRowActions
                     :group-label="`Acciones para ${u.name}`"
                     :show-delete="u.id !== currentUser?.id"
@@ -111,163 +154,178 @@
             </tbody>
           </table>
         </div>
-        <div
-          v-if="meta.last_page > 1"
-          class="flex items-center justify-between border-t border-gray-100 px-4 py-3 dark:border-gray-800"
-        >
-          <p class="text-theme-sm text-gray-500">
-            Página {{ meta.current_page }} de {{ meta.last_page }}
-          </p>
-          <div class="flex gap-2">
-            <button
-              type="button"
-              class="rounded border border-gray-200 px-3 py-1 text-theme-sm dark:border-gray-700"
-              :disabled="meta.current_page <= 1"
-              @click="changePage(meta.current_page - 1)"
-            >
-              Anterior
-            </button>
-            <button
-              type="button"
-              class="rounded border border-gray-200 px-3 py-1 text-theme-sm dark:border-gray-700"
-              :disabled="meta.current_page >= meta.last_page"
-              @click="changePage(meta.current_page + 1)"
-            >
-              Siguiente
-            </button>
-          </div>
-        </div>
+
+        <TablePagination
+          :current-page="meta.current_page"
+          :last-page="meta.last_page"
+          :total="meta.total"
+          :from="meta.from"
+          :to="meta.to"
+          @change="changePage"
+        />
       </div>
     </ComponentCard>
 
-    <div
-      v-if="modalOpen"
-      class="fixed inset-0 z-[100000] flex items-center justify-center bg-black/50 p-4"
-      @click.self="closeModal"
+    <BaseModal
+      :open="modalOpen"
+      :title="editingId ? 'Editar usuario' : 'Nuevo usuario'"
+      subtitle="Define el tipo de persona, rol de acceso y credenciales."
+      @close="closeModal"
     >
-      <div class="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-theme-md dark:bg-gray-900">
-        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
-          {{ editingId ? 'Editar usuario' : 'Nuevo usuario' }}
-        </h2>
-        <form class="mt-4 space-y-4" @submit.prevent="submit">
-          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label class="mb-1 block text-theme-sm font-medium text-gray-700 dark:text-gray-300">Tipo</label>
-              <select
-                v-model="form.person_type"
-                class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-                required
-              >
-                <option value="funcionario">Funcionario</option>
-                <option value="motorista">Motorista</option>
-              </select>
-            </div>
-            <div>
-              <label class="mb-1 block text-theme-sm font-medium text-gray-700 dark:text-gray-300">Rol de acceso</label>
-              <select
-                v-model="form.role"
-                class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-                required
-              >
-                <option value="admin">Administrador</option>
-                <option value="despachador">Despachador / Caseta</option>
-                <option value="motorista">Motorista (solo campo)</option>
-              </select>
-            </div>
+      <form id="user-form" class="space-y-4" @submit.prevent="submit">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label for="user-type" class="fleet-field-label">Tipo</label>
+            <select id="user-type" v-model="form.person_type" class="fleet-select" required>
+              <option value="funcionario">Funcionario</option>
+              <option value="motorista">Motorista</option>
+            </select>
           </div>
+          <div>
+            <label for="user-role" class="fleet-field-label">Rol de acceso</label>
+            <select id="user-role" v-model="form.role" class="fleet-select" required>
+              <option value="admin">Administrador</option>
+              <option value="despachador">Despachador / Caseta</option>
+              <option value="motorista">Motorista (solo campo)</option>
+            </select>
+          </div>
+        </div>
 
-          <div>
-            <label class="mb-1 block text-theme-sm font-medium text-gray-700 dark:text-gray-300">
-              {{ form.person_type === 'motorista' ? 'Nombre del motorista' : 'Nombre del funcionario' }}
-            </label>
-            <input
-              v-model="form.name"
-              type="text"
-              class="w-full rounded-lg border border-gray-200 px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-              required
-            />
+        <div>
+          <label for="user-name" class="fleet-field-label">
+            {{ form.person_type === 'motorista' ? 'Nombre del motorista' : 'Nombre del funcionario' }}
+            <span class="text-rose-500">*</span>
+          </label>
+          <input id="user-name" v-model="form.name" type="text" class="fleet-input" required />
+        </div>
+
+        <div v-if="form.person_type === 'motorista'">
+          <label for="user-driver-code" class="fleet-field-label">
+            Código de motorista <span class="text-rose-500">*</span>
+          </label>
+          <input
+            id="user-driver-code"
+            v-model="form.driver_code"
+            type="text"
+            autocomplete="off"
+            placeholder="Ej. MOT-001"
+            class="fleet-input font-mono uppercase"
+            :required="form.person_type === 'motorista'"
+          />
+        </div>
+
+        <div>
+          <label for="user-email" class="fleet-field-label">
+            Correo <span class="text-rose-500">*</span>
+          </label>
+          <input id="user-email" v-model="form.email" type="email" class="fleet-input" required />
+        </div>
+
+        <div>
+          <label for="user-password" class="fleet-field-label">
+            Contraseña {{ editingId ? '(opcional)' : '*' }}
+          </label>
+          <input
+            id="user-password"
+            v-model="form.password"
+            type="password"
+            class="fleet-input"
+            :required="!editingId"
+          />
+        </div>
+
+        <div>
+          <label for="user-photo" class="fleet-field-label">Imagen</label>
+          <input id="user-photo" type="file" accept="image/*" class="fleet-file" @change="onFile" />
+          <div v-if="previewUrl" class="mt-3">
+            <img :src="previewUrl" alt="Vista previa" class="size-24 rounded-2xl border border-gray-200 object-cover dark:border-gray-700" />
           </div>
-          <div v-if="form.person_type === 'motorista'">
-            <label class="mb-1 block text-theme-sm font-medium text-gray-700 dark:text-gray-300">
-              Código de motorista
-            </label>
-            <input
-              v-model="form.driver_code"
-              type="text"
-              autocomplete="off"
-              class="w-full rounded-lg border border-gray-200 px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-              :required="form.person_type === 'motorista'"
-            />
+        </div>
+      </form>
+
+      <template #footer>
+        <button type="button" class="fleet-btn-secondary" @click="closeModal">
+          Cancelar
+        </button>
+        <button type="submit" form="user-form" :disabled="saving" class="fleet-btn-primary">
+          {{ saving ? 'Guardando…' : 'Guardar' }}
+        </button>
+      </template>
+    </BaseModal>
+
+    <BaseModal
+      :open="detailOpen"
+      :title="detailItem?.name || 'Detalle de usuario'"
+      :subtitle="detailItem?.email || ''"
+      @close="detailOpen = false"
+    >
+      <div v-if="detailItem" class="space-y-4">
+        <div class="flex items-center gap-4 rounded-xl border border-gray-200/80 bg-gray-50/80 p-4 dark:border-gray-800 dark:bg-white/[0.02]">
+          <div class="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-gray-200 bg-brand-50 text-base font-bold text-brand-600 dark:border-gray-700 dark:bg-brand-500/15 dark:text-brand-300">
+            <img v-if="detailItem.photo_url" :src="detailItem.photo_url" :alt="detailItem.name" class="h-full w-full object-cover" />
+            <span v-else>{{ userInitials(detailItem.name) }}</span>
           </div>
-          <div>
-            <label class="mb-1 block text-theme-sm font-medium text-gray-700 dark:text-gray-300">Correo</label>
-            <input
-              v-model="form.email"
-              type="email"
-              class="w-full rounded-lg border border-gray-200 px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-              required
-            />
-          </div>
-          <div>
-            <label class="mb-1 block text-theme-sm font-medium text-gray-700 dark:text-gray-300">
-              Contraseña {{ editingId ? '(opcional)' : '' }}
-            </label>
-            <input
-              v-model="form.password"
-              type="password"
-              class="w-full rounded-lg border border-gray-200 px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-              :required="!editingId"
-            />
-          </div>
-          <div>
-            <label class="mb-1 block text-theme-sm font-medium text-gray-700 dark:text-gray-300">Imagen</label>
-            <input
-              type="file"
-              accept="image/*"
-              class="w-full text-theme-sm"
-              @change="onFile"
-            />
-            <div v-if="previewUrl" class="mt-2">
-              <img :src="previewUrl" alt="Vista previa" class="h-24 w-24 rounded-lg object-cover" />
+          <div class="min-w-0 space-y-1.5">
+            <p class="truncate text-base font-semibold text-gray-900 dark:text-white">{{ detailItem.name }}</p>
+            <div class="flex flex-wrap items-center gap-2">
+              <StatusBadge kind="userType" :value="detailItem.person_type || 'funcionario'" />
+              <StatusBadge kind="userRole" :value="detailItem.role || 'motorista'" />
             </div>
           </div>
-          <div class="flex justify-end gap-2 pt-2">
-            <button
-              type="button"
-              class="rounded-lg border border-gray-200 px-4 py-2 text-theme-sm dark:border-gray-700"
-              @click="closeModal"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              class="rounded-lg bg-brand-500 px-4 py-2 text-theme-sm font-medium text-white hover:bg-brand-600"
-            >
-              Guardar
-            </button>
+        </div>
+
+        <dl class="grid grid-cols-1 gap-3 text-theme-sm sm:grid-cols-2">
+          <div class="rounded-xl border border-gray-100 p-3 dark:border-gray-800">
+            <dt class="text-theme-xs text-gray-500 dark:text-gray-400">Correo electrónico</dt>
+            <dd class="mt-0.5 truncate font-medium text-gray-900 dark:text-white">{{ detailItem.email }}</dd>
           </div>
-        </form>
+          <div class="rounded-xl border border-gray-100 p-3 dark:border-gray-800">
+            <dt class="text-theme-xs text-gray-500 dark:text-gray-400">Código de motorista</dt>
+            <dd class="mt-0.5 font-mono font-medium text-gray-900 dark:text-white">
+              {{ detailItem.person_type === 'motorista' && detailItem.driver_code ? detailItem.driver_code : '—' }}
+            </dd>
+          </div>
+        </dl>
       </div>
-    </div>
+
+      <template #footer>
+        <button type="button" class="fleet-btn-primary" @click="detailOpen = false">
+          Cerrar
+        </button>
+      </template>
+    </BaseModal>
   </AdminLayout>
 </template>
 
 <script setup>
-import Swal from 'sweetalert2';
-import { onMounted, reactive, ref, watch } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import AdminLayout from '@/components/layout/AdminLayout.vue';
+import BaseModal from '@/components/common/BaseModal.vue';
 import ComponentCard from '@/components/common/ComponentCard.vue';
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue';
+import StatusBadge from '@/components/common/StatusBadge.vue';
+import TableEmptyState from '@/components/common/TableEmptyState.vue';
+import TablePagination from '@/components/common/TablePagination.vue';
 import TableRowActions from '@/components/common/TableRowActions.vue';
 import { useAuth } from '../composables/useAuth';
+import {
+  confirmDeleteDialog,
+  showErrorAlert,
+  showSuccessAlert,
+  showWarningAlert,
+} from '../utils/alerts';
 
 const { currentUser, loadMe, logout } = useAuth();
 
 const users = ref([]);
-const meta = ref({ current_page: 1, last_page: 1 });
+const loading = ref(true);
+const saving = ref(false);
+const meta = ref({ current_page: 1, last_page: 1, total: 0, from: 0, to: 0 });
 const searchQuery = ref('');
 const filterRole = ref('');
 const modalOpen = ref(false);
+const detailOpen = ref(false);
+const detailItem = ref(null);
 const editingId = ref(null);
 const previewUrl = ref('');
 const fileRef = ref(null);
@@ -281,22 +339,46 @@ const form = reactive({
   driver_code: '',
 });
 
-const roleBadgeClass = (role) => {
-  if (role === 'admin') return 'bg-purple-500/15 text-purple-700 dark:text-purple-300';
-  if (role === 'despachador') return 'bg-sky-500/15 text-sky-700 dark:text-sky-300';
-  return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300';
+const hasFilters = computed(() => Boolean(searchQuery.value.trim() || filterRole.value));
+
+const userInitials = (name) => {
+  const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return 'U';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
 };
 
 const loadUsers = async (page = 1) => {
-  const params = { page };
-  if (searchQuery.value.trim()) params.search = searchQuery.value.trim();
-  if (filterRole.value) params.role = filterRole.value;
-  const { data } = await window.axios.get('/users', { params });
-  users.value = data.data;
-  meta.value = {
-    current_page: data.current_page,
-    last_page: data.last_page,
-  };
+  loading.value = true;
+  try {
+    const params = { page };
+    if (searchQuery.value.trim()) params.search = searchQuery.value.trim();
+    if (filterRole.value) params.role = filterRole.value;
+    const { data } = await window.axios.get('/users', { params });
+    users.value = data.data || [];
+    meta.value = {
+      current_page: data.current_page ?? 1,
+      last_page: data.last_page ?? 1,
+      total: data.total ?? users.value.length,
+      from: data.from ?? 0,
+      to: data.to ?? 0,
+    };
+  } catch (_) {
+    /* manejado por interceptor o estado actual */
+  } finally {
+    loading.value = false;
+  }
+};
+
+const clearSearch = () => {
+  searchQuery.value = '';
+  loadUsers(1);
+};
+
+const resetFilters = () => {
+  searchQuery.value = '';
+  filterRole.value = '';
+  loadUsers(1);
 };
 
 const changePage = (page) => {
@@ -345,35 +427,9 @@ const openEdit = (u) => {
   modalOpen.value = true;
 };
 
-const esc = (v) =>
-  String(v ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-
 const openView = (u) => {
-  const tipo = u.person_type === 'motorista' ? 'Motorista' : 'Funcionario';
-  const codigo = u.person_type === 'motorista' && u.driver_code ? esc(u.driver_code) : '—';
-  const pu = u.photo_url && String(u.photo_url).trim();
-  const photo =
-    pu && (/^https?:\/\//.test(pu) || pu.startsWith('/'))
-      ? `<p class="mt-3"><img src="${esc(pu)}" alt="" class="mx-auto h-28 w-28 rounded-lg object-cover" /></p>`
-      : '';
-  Swal.fire({
-    title: esc(u.name),
-    html: `
-      <div class="text-left text-theme-sm space-y-2 text-gray-700">
-        <p><strong>Correo:</strong> ${esc(u.email)}</p>
-        <p><strong>Tipo:</strong> ${tipo}</p>
-        <p><strong>Rol:</strong> ${esc(u.role || 'motorista')}</p>
-        <p><strong>Código:</strong> ${codigo}</p>
-      </div>
-      ${photo}
-    `,
-    confirmButtonText: 'Cerrar',
-    showCloseButton: true,
-  });
+  detailItem.value = u;
+  detailOpen.value = true;
 };
 
 const closeModal = () => {
@@ -400,41 +456,43 @@ const buildFormData = () => {
 };
 
 const submit = async () => {
+  if (saving.value) return;
+  if (!editingId.value && !form.password) {
+    await showWarningAlert('La contraseña es obligatoria al crear');
+    return;
+  }
+  saving.value = true;
   try {
     if (editingId.value) {
       await window.axios.post(`/users/${editingId.value}`, buildFormData());
     } else {
-      if (!form.password) {
-        await Swal.fire({ icon: 'warning', title: 'La contraseña es obligatoria al crear' });
-        return;
-      }
       await window.axios.post('/users', buildFormData());
     }
-    await Swal.fire({ icon: 'success', title: 'Guardado', timer: 1400, showConfirmButton: false });
+    await showSuccessAlert('Guardado');
     closeModal();
     await loadUsers(meta.value.current_page);
   } catch (err) {
-    const msg = err.response?.data?.message || 'No se pudo guardar';
-    await Swal.fire({ icon: 'error', title: 'Error', text: msg });
+    const errors = err.response?.data?.errors;
+    const firstErr = errors ? Object.values(errors).flat()[0] : null;
+    const msg = firstErr || err.response?.data?.message || 'No se pudo guardar';
+    await showErrorAlert('Error', msg);
+  } finally {
+    saving.value = false;
   }
 };
 
 const confirmDelete = async (u) => {
-  const r = await Swal.fire({
-    icon: 'warning',
+  const r = await confirmDeleteDialog({
     title: '¿Eliminar usuario?',
     text: u.name,
-    showCancelButton: true,
-    confirmButtonText: 'Sí, eliminar',
-    cancelButtonText: 'Cancelar',
   });
   if (!r.isConfirmed) return;
   try {
     await window.axios.delete(`/users/${u.id}`);
-    await Swal.fire({ icon: 'success', title: 'Eliminado', timer: 1200, showConfirmButton: false });
+    await showSuccessAlert('Eliminado');
     await loadUsers(meta.value.current_page);
   } catch (err) {
-    await Swal.fire({ icon: 'error', title: err.response?.data?.message || 'No se pudo eliminar' });
+    await showErrorAlert('Error', err.response?.data?.message || 'No se pudo eliminar');
   }
 };
 
