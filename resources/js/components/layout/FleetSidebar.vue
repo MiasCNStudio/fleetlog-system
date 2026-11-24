@@ -35,7 +35,7 @@
 
     <nav class="flex flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden px-2 pb-6">
       <router-link
-        v-for="item in items"
+        v-for="item in visibleItems"
         :key="item.to"
         :to="item.to"
         :title="item.label"
@@ -63,12 +63,14 @@
 </template>
 
 <script setup>
-import { h } from 'vue';
+import { computed, h } from 'vue';
 import { useRoute } from 'vue-router';
 import { useFleetLayout } from '@/composables/useFleetLayout.js';
+import { useAuth } from '@/composables/useAuth.js';
 
 const route = useRoute();
 const { closeMobile, isMobileOpen } = useFleetLayout();
+const { isAdmin } = useAuth();
 
 const IconDashboard = {
   render() {
@@ -139,12 +141,33 @@ const IconClipboard = {
   },
 };
 
+const IconAlert = {
+  render() {
+    return h(
+      'svg',
+      { fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor', 'stroke-width': '1.75' },
+      [
+        h('path', {
+          'stroke-linecap': 'round',
+          'stroke-linejoin': 'round',
+          d: 'M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z',
+        }),
+      ],
+    );
+  },
+};
+
 const items = [
   { label: 'Dashboard', to: '/dashboard', icon: IconDashboard },
-  { label: 'Usuarios', to: '/usuarios', icon: IconUsers },
-  { label: 'Vehículos', to: '/vehiculos', icon: IconTruck },
   { label: 'Bitácora', to: '/bitacora', icon: IconClipboard },
+  { label: 'Vehículos', to: '/vehiculos', icon: IconTruck },
+  { label: 'Incidencias', to: '/incidencias', icon: IconAlert },
+  { label: 'Usuarios', to: '/usuarios', icon: IconUsers, adminOnly: true },
 ];
+
+const visibleItems = computed(() =>
+  items.filter((item) => !item.adminOnly || isAdmin.value),
+);
 
 const isActive = (path) => route.path === path || route.path.startsWith(`${path}/`);
 </script>

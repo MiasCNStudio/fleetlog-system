@@ -11,11 +11,22 @@ class Bitacora extends Model
 
     public const TYPE_REGRESO = 'regreso';
 
+    public const FUEL_LEVELS = [
+        'lleno',
+        '3/4',
+        '1/2',
+        '1/4',
+        'reserva',
+    ];
+
     protected $fillable = [
         'vehicle_id',
         'user_id',
+        'driver_id',
         'type',
         'recorded_at',
+        'odometer_km',
+        'fuel_level',
         'destination',
         'companions',
     ];
@@ -24,6 +35,7 @@ class Bitacora extends Model
     {
         return [
             'recorded_at' => 'datetime',
+            'odometer_km' => 'integer',
         ];
     }
 
@@ -35,5 +47,10 @@ class Bitacora extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function driver(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'driver_id');
     }
 }

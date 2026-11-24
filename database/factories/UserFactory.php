@@ -29,8 +29,27 @@ class UserFactory extends Factory
             'email' => fake()->unique()->safeEmail(),
             'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
+            'person_type' => 'funcionario',
+            'role' => User::ROLE_ADMIN,
             'remember_token' => Str::random(10),
         ];
+    }
+
+    public function driver(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'person_type' => 'motorista',
+            'role' => User::ROLE_DRIVER,
+            'driver_code' => 'DRV-'.fake()->unique()->numerify('####'),
+        ]);
+    }
+
+    public function dispatcher(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'person_type' => 'funcionario',
+            'role' => User::ROLE_DISPATCHER,
+        ]);
     }
 
     /**

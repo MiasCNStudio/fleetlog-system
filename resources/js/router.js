@@ -4,14 +4,16 @@ import DashboardView from './views/DashboardView.vue';
 import UsersView from './views/UsersView.vue';
 import VehiclesView from './views/VehiclesView.vue';
 import BitacoraView from './views/BitacoraView.vue';
+import IncidentsView from './views/IncidentsView.vue';
 
 const routes = [
   { path: '/login', name: 'login', component: LoginView },
   { path: '/', redirect: '/dashboard' },
   { path: '/dashboard', name: 'dashboard', component: DashboardView, meta: { requiresAuth: true } },
-  { path: '/usuarios', name: 'users', component: UsersView, meta: { requiresAuth: true } },
+  { path: '/usuarios', name: 'users', component: UsersView, meta: { requiresAuth: true, requiresAdmin: true } },
   { path: '/vehiculos', name: 'vehicles', component: VehiclesView, meta: { requiresAuth: true } },
   { path: '/bitacora', name: 'bitacora', component: BitacoraView, meta: { requiresAuth: true } },
+  { path: '/incidencias', name: 'incidents', component: IncidentsView, meta: { requiresAuth: true } },
 ];
 
 const router = createRouter({
@@ -24,6 +26,17 @@ router.beforeEach((to) => {
 
   if (to.meta.requiresAuth && !hasToken) return { name: 'login' };
   if (to.name === 'login' && hasToken) return { name: 'dashboard' };
+
+  if (to.meta.requiresAdmin) {
+    try {
+      const user = JSON.parse(localStorage.getItem('auth_user') || 'null');
+      if (user && user.role !== 'admin') {
+        return { name: 'dashboard' };
+      }
+    } catch (_) {
+      /* continúa y valida con API */
+    }
+  }
 
   return true;
 });

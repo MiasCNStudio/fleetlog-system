@@ -4,15 +4,14 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "dev": "vite"
+    "dev": "vite",
+    "dev:remote": "vite --mode remote --host 0.0.0.0"
   },
   "dependencies": {
     "@vueuse/core": "^12.8.2",
-    "alpinejs": "^3.14.9",
     "apexcharts": "^4.5.0",
     "axios": "^1.11.0",
     "sweetalert2": "^11.17.2",
-    "tom-select": "^2.4.3",
     "vue": "^3.5.18",
     "vue-router": "^4.5.1"
   },

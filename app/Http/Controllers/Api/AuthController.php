@@ -15,6 +15,7 @@ class AuthController extends Controller
         $credentials = $request->validate([
             'email' => ['required', 'email'],
             'password' => ['required', 'string'],
+            'device_name' => ['nullable', 'string', 'max:100'],
         ]);
 
         $user = User::query()->where('email', $credentials['email'])->first();
@@ -25,7 +26,8 @@ class AuthController extends Controller
             ]);
         }
 
-        $token = $user->createToken('web-dashboard')->plainTextToken;
+        $deviceName = $credentials['device_name'] ?? 'web-dashboard';
+        $token = $user->createToken($deviceName)->plainTextToken;
 
         return response()->json([
             'token' => $token,

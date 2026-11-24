@@ -22,6 +22,7 @@
       </svg>
     </button>
     <button
+      v-if="showEdit"
       type="button"
       class="inline-flex size-9 items-center justify-center rounded-lg text-amber-500 outline-none ring-brand-500/30 transition-colors hover:bg-amber-500/15 focus-visible:ring-2 dark:text-amber-400 dark:hover:bg-amber-400/15"
       :title="editTitle"
@@ -37,6 +38,7 @@
       </svg>
     </button>
     <button
+      v-if="showDelete"
       type="button"
       class="inline-flex size-9 items-center justify-center rounded-lg text-rose-500 outline-none ring-brand-500/30 transition-colors hover:bg-rose-500/15 focus-visible:ring-2 dark:text-rose-400 dark:hover:bg-rose-400/15"
       :title="deleteTitle"
@@ -58,6 +60,8 @@
 defineProps({
   groupLabel: { type: String, default: '' },
   showView: { type: Boolean, default: true },
+  showEdit: { type: Boolean, default: true },
+  showDelete: { type: Boolean, default: true },
   viewTitle: { type: String, default: 'Ver' },
   editTitle: { type: String, default: 'Editar' },
   deleteTitle: { type: String, default: 'Eliminar' },

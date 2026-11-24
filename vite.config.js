@@ -3,12 +3,59 @@ import laravel from 'laravel-vite-plugin';
 import vue from '@vitejs/plugin-vue';
 import { fileURLToPath, URL } from 'node:url';
 
+function remoteSpaPlugin() {
+  return {
+    name: 'fleetlog-remote-spa',
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        const url = req.url || '/';
+        const isInternal =
+          url.startsWith('/api') ||
+          url.startsWith('/storage') ||
+          url.startsWith('/@') ||
+          url.startsWith('/resources') ||
+          url.startsWith('/node_modules') ||
+          url.includes('.');
+
+        if (req.method !== 'GET' || isInternal) {
+          return next();
+        }
+
+        const rawHtml = `<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fleetlog (Modo Híbrido)</title>
+  <script type="module" src="/resources/js/app.js"></script>
+  <link rel="stylesheet" href="/resources/css/app.css">
+</head>
+<body class="bg-slate-100 text-slate-800">
+  <div id="app"></div>
+</body>
+</html>`;
+
+        const html = await server.transformIndexHtml(url, rawHtml);
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'text/html');
+        res.end(html);
+      });
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
-  const backendUrl = env.APP_URL || 'http://127.0.0.1';
-  /** Con APP_URL https y certificado autofirmado (Laragon), el proxy acepta el cert por defecto. Use VITE_DEV_PROXY_TLS_STRICT=1 para validar SSL. */
+  const isRemote = mode === 'remote';
+  const backendUrl = env.VITE_API_TARGET || env.APP_URL || 'http://127.0.0.1:8080';
   const httpsTarget = backendUrl.startsWith('https://');
   const proxyVerifyTls = env.VITE_DEV_PROXY_TLS_STRICT === '1';
+
+  const proxyConfig = {
+    target: backendUrl,
+    changeOrigin: true,
+    secure: httpsTarget ? proxyVerifyTls : true,
+  };
 
   return {
     resolve: {
@@ -17,19 +64,20 @@ export default defineConfig(({ mode }) => {
       },
     },
     plugins: [
-      laravel({
-        input: ['resources/css/app.css', 'resources/js/app.js'],
-        refresh: true,
-      }),
+      ...(isRemote
+        ? [remoteSpaPlugin()]
+        : [
+            laravel({
+              input: ['resources/css/app.css', 'resources/js/app.js'],
+              refresh: true,
+            }),
+          ]),
       vue(),
     ],
     server: {
       proxy: {
-        '/api': {
-          target: backendUrl,
-          changeOrigin: true,
-          secure: httpsTarget ? proxyVerifyTls : true,
-        },
+        '/api': proxyConfig,
+        '/storage': proxyConfig,
       },
     },
   };

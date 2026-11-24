@@ -16,10 +16,40 @@ class UserController extends Controller
     public function index(Request $request): JsonResponse
     {
         $perPage = min((int) $request->query('per_page', 15), 100);
+        $query = User::query()->orderBy('name');
 
-        return response()->json(
-            User::query()->orderBy('name')->paginate($perPage)
-        );
+        if ($request->filled('role')) {
+            $query->where('role', $request->query('role'));
+        }
+
+        if ($request->filled('person_type')) {
+            $query->where('person_type', $request->query('person_type'));
+        }
+
+        if ($request->filled('search')) {
+            $term = '%'.trim((string) $request->query('search')).'%';
+            $query->where(function ($q) use ($term) {
+                $q->where('name', 'like', $term)
+                    ->orWhere('email', 'like', $term)
+                    ->orWhere('driver_code', 'like', $term);
+            });
+        }
+
+        return response()->json($query->paginate($perPage));
+    }
+
+    public function driverOptions(): JsonResponse
+    {
+        $drivers = User::query()
+            ->select(['id', 'name', 'person_type', 'role', 'driver_code'])
+            ->where(function ($q) {
+                $q->where('person_type', 'motorista')
+                    ->orWhere('role', User::ROLE_DRIVER);
+            })
+            ->orderBy('name')
+            ->get();
+
+        return response()->json(['data' => $drivers]);
     }
 
     public function store(StoreUserRequest $request): JsonResponse
@@ -32,6 +62,12 @@ class UserController extends Controller
 
         if (($data['person_type'] ?? null) === 'funcionario') {
             $data['driver_code'] = null;
+        }
+
+        if (! isset($data['role'])) {
+            $data['role'] = ($data['person_type'] ?? null) === 'motorista'
+                ? User::ROLE_DRIVER
+                : User::ROLE_DISPATCHER;
         }
 
         if ($photo) {
@@ -81,8 +117,14 @@ class UserController extends Controller
         return response()->json($user->fresh());
     }
 
-    public function destroy(User $user): JsonResponse
+    public function destroy(Request $request, User $user): JsonResponse
     {
+        if ($request->user()?->id === $user->id) {
+            return response()->json([
+                'message' => 'No puedes eliminar tu propia cuenta activa.',
+            ], 422);
+        }
+
         if ($user->photo_path) {
             Storage::disk('public')->delete($user->photo_path);
         }

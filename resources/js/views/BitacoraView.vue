@@ -1,6 +1,6 @@
 <template>
   <AdminLayout header-title="Bitácora" :user-name="currentUser?.name" @logout="logout">
-    <PageBreadcrumb page-title="Bitácora" subtitle="Registro de salidas y regresos de vehículos.">
+    <PageBreadcrumb page-title="Bitácora" subtitle="Registro de salidas, regresos, odómetro y combustible.">
       <template #actions>
         <button
           type="button"
@@ -27,6 +27,18 @@
             </option>
           </select>
         </div>
+        <div>
+          <label class="mb-1 block text-theme-xs font-medium text-gray-600 dark:text-gray-400">Tipo</label>
+          <select
+            v-model="filterType"
+            class="rounded-lg border border-gray-200 px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+            @change="loadBitacoras(1)"
+          >
+            <option value="">Todos</option>
+            <option value="salida">Salidas</option>
+            <option value="regreso">Regresos</option>
+          </select>
+        </div>
       </div>
 
       <div class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
@@ -44,7 +56,10 @@
                   <p class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Vehículo</p>
                 </th>
                 <th class="px-5 py-3 text-left sm:px-6">
-                  <p class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Registró</p>
+                  <p class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Conductor</p>
+                </th>
+                <th class="px-5 py-3 text-left sm:px-6">
+                  <p class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Odómetro / Comb.</p>
                 </th>
                 <th class="px-5 py-3 text-left sm:px-6">
                   <p class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Destino</p>
@@ -75,7 +90,11 @@
                   {{ b.vehicle?.license_plate }}
                 </td>
                 <td class="px-5 py-4 text-theme-sm text-gray-600 dark:text-gray-300 sm:px-6">
-                  {{ b.user?.name }}
+                  {{ b.driver?.name || b.user?.name }}
+                </td>
+                <td class="px-5 py-4 text-theme-sm text-gray-600 dark:text-gray-300 sm:px-6">
+                  <span>{{ b.odometer_km !== null && b.odometer_km !== undefined ? `${b.odometer_km.toLocaleString()} km` : '—' }}</span>
+                  <span v-if="b.fuel_level" class="ml-1 text-theme-xs text-gray-400">({{ b.fuel_level }})</span>
                 </td>
                 <td class="max-w-[200px] truncate px-5 py-4 text-theme-sm text-gray-600 dark:text-gray-300 sm:px-6" :title="b.destination || ''">
                   {{ b.destination || '—' }}
@@ -83,6 +102,8 @@
                 <td class="px-5 py-4 text-right sm:px-6">
                   <TableRowActions
                     :group-label="`Acciones bitácora ${b.id}`"
+                    :show-edit="canManageFleet"
+                    :show-delete="isAdmin"
                     @view="openView(b)"
                     @edit="openEdit(b)"
                     @delete="confirmDelete(b)"
@@ -134,7 +155,7 @@
         <div v-if="!editingId" class="mt-3 space-y-3">
           <div class="rounded-lg border border-gray-200 bg-gray-50 p-3 text-theme-sm dark:border-gray-700 dark:bg-gray-800/50">
             <p class="text-gray-600 dark:text-gray-300">
-              <span class="font-medium text-gray-800 dark:text-white">Usuario:</span>
+              <span class="font-medium text-gray-800 dark:text-white">Registró:</span>
               {{ currentUser?.name }}
             </p>
             <p class="mt-1 text-gray-600 dark:text-gray-300">
@@ -142,7 +163,6 @@
               se registrará al guardar (hora del servidor).
             </p>
           </div>
-
         </div>
 
         <form class="mt-4 space-y-4" @submit.prevent="submit">
@@ -156,23 +176,72 @@
             >
               <option value="" disabled>Seleccione…</option>
               <option v-for="v in vehicleOptions" :key="v.id" :value="String(v.id)">
-                {{ v.license_plate }} — {{ v.brand }} {{ v.model }}
+                {{ v.license_plate }} — {{ v.brand }} {{ v.model }} ({{ v.status === 'mantenimiento' ? 'En mantenimiento' : v.next_type }})
               </option>
             </select>
           </div>
 
-          <div v-if="!editingId && nextType" class="flex items-center gap-2">
-            <span class="text-theme-sm text-gray-600 dark:text-gray-300">Movimiento:</span>
-            <span
-              class="inline-flex rounded-full px-2.5 py-0.5 text-theme-xs font-medium"
-              :class="
-                nextType === 'salida'
-                  ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
-                  : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
-              "
-            >
-              {{ nextType === 'salida' ? 'Salida' : 'Regreso' }}
+          <div v-if="!editingId && nextType" class="flex flex-wrap items-center gap-3">
+            <div class="flex items-center gap-2">
+              <span class="text-theme-sm text-gray-600 dark:text-gray-300">Movimiento:</span>
+              <span
+                class="inline-flex rounded-full px-2.5 py-0.5 text-theme-xs font-medium"
+                :class="
+                  nextType === 'salida'
+                    ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
+                    : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                "
+              >
+                {{ nextType === 'salida' ? 'Salida' : 'Regreso' }}
+              </span>
+            </div>
+            <span v-if="vehicleLastOdometer !== null" class="text-theme-xs text-gray-500">
+              Último odómetro: {{ vehicleLastOdometer.toLocaleString() }} km
             </span>
+          </div>
+
+          <div v-if="vehicleStatus === 'mantenimiento' && nextType === 'salida'" class="rounded-lg bg-rose-50 p-3 text-theme-sm text-rose-700 dark:bg-rose-500/15 dark:text-rose-300">
+            Este vehículo está marcado en mantenimiento. Cambia su estado en Vehículos antes de registrar una salida.
+          </div>
+
+          <div v-if="canManageFleet">
+            <label class="mb-1 block text-theme-sm font-medium text-gray-700 dark:text-gray-300">Conductor asignado</label>
+            <select
+              v-model="form.driver_id"
+              class="w-full rounded-lg border border-gray-200 px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+            >
+              <option value="">Quien registra ({{ currentUser?.name }})</option>
+              <option v-for="d in driverOptions" :key="d.id" :value="String(d.id)">
+                {{ d.name }} {{ d.driver_code ? `(${d.driver_code})` : '' }}
+              </option>
+            </select>
+          </div>
+
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label class="mb-1 block text-theme-sm font-medium text-gray-700 dark:text-gray-300">Odómetro (km)</label>
+              <input
+                v-model.number="form.odometer_km"
+                type="number"
+                min="0"
+                :placeholder="vehicleLastOdometer !== null ? `Mín. ${vehicleLastOdometer}` : 'Ej. 45200'"
+                class="w-full rounded-lg border border-gray-200 px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+              />
+            </div>
+            <div>
+              <label class="mb-1 block text-theme-sm font-medium text-gray-700 dark:text-gray-300">Combustible</label>
+              <select
+                v-model="form.fuel_level"
+                class="w-full rounded-lg border border-gray-200 px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+              >
+                <option value="">Sin especificar</option>
+                <option value="lleno">Lleno</option>
+                <option value="3/4">3/4</option>
+                <option value="1/2">1/2</option>
+                <option value="1/4">1/4</option>
+                <option value="reserva">Reserva</option>
+              </select>
+            </div>
           </div>
 
           <div v-if="!editingId && nextType === 'salida'">
@@ -269,26 +338,31 @@
 <script setup>
 import Swal from 'sweetalert2';
 import { computed, onMounted, reactive, ref, watch } from 'vue';
-import { useRouter } from 'vue-router';
 import AdminLayout from '@/components/layout/AdminLayout.vue';
 import ComponentCard from '@/components/common/ComponentCard.vue';
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue';
 import TableRowActions from '@/components/common/TableRowActions.vue';
-import { setAuthToken } from '../bootstrap';
+import { useAuth } from '../composables/useAuth';
 
-const router = useRouter();
+const { currentUser, isAdmin, canManageFleet, loadMe, logout } = useAuth();
 
-const currentUser = ref(null);
 const bitacoras = ref([]);
 const vehicleOptions = ref([]);
+const driverOptions = ref([]);
 const meta = ref({ current_page: 1, last_page: 1 });
 const filterVehicleId = ref('');
+const filterType = ref('');
 const modalOpen = ref(false);
 const editingId = ref(null);
 const nextType = ref(null);
+const vehicleStatus = ref(null);
+const vehicleLastOdometer = ref(null);
 
 const form = reactive({
   vehicle_id: '',
+  driver_id: '',
+  odometer_km: null,
+  fuel_level: '',
   destination: '',
   companions: '',
 });
@@ -308,19 +382,20 @@ const formatDateTime = (iso) => {
   return d.toLocaleString('es-HN', { dateStyle: 'short', timeStyle: 'medium' });
 };
 
-const loadMe = async () => {
-  const { data } = await window.axios.get('/user');
-  currentUser.value = data;
+const loadVehicles = async () => {
+  const { data } = await window.axios.get('/vehicles/options');
+  vehicleOptions.value = data.data || [];
 };
 
-const loadVehicles = async () => {
-  const { data } = await window.axios.get('/vehicles', { params: { per_page: 100 } });
-  vehicleOptions.value = data.data || [];
+const loadDrivers = async () => {
+  const { data } = await window.axios.get('/drivers/options');
+  driverOptions.value = data.data || [];
 };
 
 const loadBitacoras = async (page = 1) => {
   const params = { page, per_page: 15 };
   if (filterVehicleId.value) params.vehicle_id = filterVehicleId.value;
+  if (filterType.value) params.type = filterType.value;
   const { data } = await window.axios.get('/bitacoras', { params });
   bitacoras.value = data.data;
   meta.value = {
@@ -337,31 +412,49 @@ const changePage = (page) => {
 const fetchNextType = async (vehicleId) => {
   if (!vehicleId) {
     nextType.value = null;
+    vehicleStatus.value = null;
+    vehicleLastOdometer.value = null;
     return;
   }
   const { data } = await window.axios.get(`/vehicles/${vehicleId}/siguiente-tipo-bitacora`);
   nextType.value = data.type;
+  vehicleStatus.value = data.status;
+  vehicleLastOdometer.value = data.current_odometer ?? 0;
+  if (!editingId.value && form.odometer_km === null) {
+    form.odometer_km = data.current_odometer ?? null;
+  }
 };
 
 const onVehicleChange = async () => {
+  form.odometer_km = null;
   await fetchNextType(form.vehicle_id);
 };
 
 const openCreate = () => {
   editingId.value = null;
   form.vehicle_id = '';
+  form.driver_id = '';
+  form.odometer_km = null;
+  form.fuel_level = '';
   form.destination = '';
   form.companions = '';
   nextType.value = null;
+  vehicleStatus.value = null;
+  vehicleLastOdometer.value = null;
   modalOpen.value = true;
 };
 
 const openEdit = (b) => {
   editingId.value = b.id;
   form.vehicle_id = String(b.vehicle_id);
+  form.driver_id = b.driver_id ? String(b.driver_id) : '';
+  form.odometer_km = b.odometer_km ?? null;
+  form.fuel_level = b.fuel_level || '';
   form.destination = b.destination || '';
   form.companions = b.companions || '';
   nextType.value = null;
+  vehicleStatus.value = null;
+  vehicleLastOdometer.value = null;
   modalOpen.value = true;
 };
 
@@ -384,7 +477,10 @@ const openView = (b) => {
       <div class="text-left text-theme-sm space-y-2 text-gray-700">
         <p><strong>Fecha:</strong> ${esc(formatDateTime(b.recorded_at))}</p>
         <p><strong>Tipo:</strong> ${b.type === 'salida' ? 'Salida' : 'Regreso'}</p>
+        <p><strong>Conductor:</strong> ${esc(b.driver?.name || b.user?.name)}</p>
         <p><strong>Registró:</strong> ${esc(b.user?.name)}</p>
+        <p><strong>Odómetro:</strong> ${b.odometer_km !== null && b.odometer_km !== undefined ? `${b.odometer_km.toLocaleString()} km` : '—'}</p>
+        <p><strong>Combustible:</strong> ${esc(b.fuel_level || '—')}</p>
         <p><strong>Destino / notas:</strong> ${dest ? esc(dest) : '—'}</p>
         <p><strong>Acompañantes:</strong> ${b.companions ? esc(b.companions) : '—'}</p>
         ${mapLink ? `<p><a href="${esc(mapLink)}" target="_blank" rel="noopener noreferrer" class="text-sky-600 underline">Abrir destino en Google Maps</a></p>` : ''}
@@ -407,26 +503,30 @@ const submit = async () => {
       await Swal.fire({ icon: 'warning', title: 'Destino requerido', text: 'Indique a dónde se dirige el vehículo.' });
       return;
     }
+
+    const payload = {
+      driver_id: form.driver_id ? Number(form.driver_id) : null,
+      odometer_km: form.odometer_km !== null && form.odometer_km !== '' ? Number(form.odometer_km) : null,
+      fuel_level: form.fuel_level || null,
+      destination: form.destination?.trim() || null,
+      companions: form.companions || null,
+    };
+
     if (editingId.value) {
-      await window.axios.put(`/bitacoras/${editingId.value}`, {
-        destination: form.destination || null,
-        companions: form.companions || null,
-      });
+      await window.axios.put(`/bitacoras/${editingId.value}`, payload);
     } else {
       await window.axios.post('/bitacoras', {
+        ...payload,
         vehicle_id: Number(form.vehicle_id),
-        destination: form.destination?.trim() || null,
-        companions: form.companions || null,
       });
     }
     await Swal.fire({ icon: 'success', title: 'Guardado', timer: 1400, showConfirmButton: false });
     closeModal();
-    await loadBitacoras(meta.value.current_page);
+    await Promise.all([loadVehicles(), loadBitacoras(meta.value.current_page)]);
   } catch (err) {
-    const msg =
-      err.response?.data?.message ||
-      err.response?.data?.errors?.destination?.[0] ||
-      'No se pudo guardar';
+    const errors = err.response?.data?.errors;
+    const firstErr = errors ? Object.values(errors).flat()[0] : null;
+    const msg = firstErr || err.response?.data?.message || 'No se pudo guardar';
     await Swal.fire({ icon: 'error', title: 'Error', text: msg });
   }
 };
@@ -443,20 +543,9 @@ const confirmDelete = async (b) => {
   try {
     await window.axios.delete(`/bitacoras/${b.id}`);
     await Swal.fire({ icon: 'success', title: 'Eliminado', timer: 1200, showConfirmButton: false });
-    await loadBitacoras(meta.value.current_page);
+    await Promise.all([loadVehicles(), loadBitacoras(meta.value.current_page)]);
   } catch (err) {
-    await Swal.fire({ icon: 'error', title: 'No se pudo eliminar' });
-  }
-};
-
-const logout = async () => {
-  try {
-    await window.axios.post('/logout');
-  } catch (_) {
-    /* vacío */
-  } finally {
-    setAuthToken(null);
-    await router.push({ name: 'login' });
+    await Swal.fire({ icon: 'error', title: err.response?.data?.message || 'No se pudo eliminar' });
   }
 };
 
@@ -470,13 +559,7 @@ watch(
 );
 
 onMounted(async () => {
-  try {
-    await loadMe();
-    await loadVehicles();
-    await loadBitacoras(1);
-  } catch (_) {
-    setAuthToken(null);
-    await router.push({ name: 'login' });
-  }
+  await loadMe();
+  await Promise.all([loadVehicles(), loadDrivers(), loadBitacoras(1)]);
 });
 </script>

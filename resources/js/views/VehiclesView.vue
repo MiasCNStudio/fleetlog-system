@@ -1,7 +1,7 @@
 <template>
   <AdminLayout header-title="Vehículos" :user-name="currentUser?.name" @logout="logout">
-    <PageBreadcrumb page-title="Vehículos" subtitle="Registro de unidades de la flota.">
-      <template #actions>
+    <PageBreadcrumb page-title="Vehículos" subtitle="Registro, estado operativo y odómetro de unidades.">
+      <template v-if="canManageFleet" #actions>
         <button
           type="button"
           class="rounded-lg bg-brand-500 px-4 py-2 text-theme-sm font-medium text-white hover:bg-brand-600"
@@ -12,7 +12,33 @@
       </template>
     </PageBreadcrumb>
 
-    <ComponentCard title="Listado" desc="Placa, color, marca, modelo e imagen.">
+    <ComponentCard title="Listado" desc="Estado, kilometraje actual, placa, marca y modelo.">
+      <div class="mb-4 flex flex-wrap items-end gap-3">
+        <div>
+          <label class="mb-1 block text-theme-xs font-medium text-gray-600 dark:text-gray-400">Buscar</label>
+          <input
+            v-model="searchQuery"
+            type="text"
+            placeholder="Placa, marca o modelo..."
+            class="rounded-lg border border-gray-200 px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+            @keyup.enter="loadVehicles(1)"
+          />
+        </div>
+        <div>
+          <label class="mb-1 block text-theme-xs font-medium text-gray-600 dark:text-gray-400">Estado</label>
+          <select
+            v-model="filterStatus"
+            class="rounded-lg border border-gray-200 px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+            @change="loadVehicles(1)"
+          >
+            <option value="">Todos</option>
+            <option value="disponible">Disponible</option>
+            <option value="en_ruta">En ruta</option>
+            <option value="mantenimiento">Mantenimiento</option>
+          </select>
+        </div>
+      </div>
+
       <div class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
         <div class="max-w-full overflow-x-auto">
           <table class="min-w-full">
@@ -25,13 +51,13 @@
                   <p class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Placa</p>
                 </th>
                 <th class="px-5 py-3 text-left sm:px-6">
-                  <p class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Color</p>
+                  <p class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Vehículo</p>
                 </th>
                 <th class="px-5 py-3 text-left sm:px-6">
-                  <p class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Marca</p>
+                  <p class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Estado</p>
                 </th>
                 <th class="px-5 py-3 text-left sm:px-6">
-                  <p class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Modelo</p>
+                  <p class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Odómetro</p>
                 </th>
                 <th class="px-5 py-3 text-right sm:px-6">
                   <p class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Acciones</p>
@@ -53,12 +79,25 @@
                 <td class="px-5 py-4 font-medium text-gray-800 text-theme-sm dark:text-white/90 sm:px-6">
                   {{ v.license_plate }}
                 </td>
-                <td class="px-5 py-4 text-theme-sm text-gray-600 dark:text-gray-300 sm:px-6">{{ v.color }}</td>
-                <td class="px-5 py-4 text-theme-sm text-gray-600 dark:text-gray-300 sm:px-6">{{ v.brand }}</td>
-                <td class="px-5 py-4 text-theme-sm text-gray-600 dark:text-gray-300 sm:px-6">{{ v.model }}</td>
+                <td class="px-5 py-4 text-theme-sm text-gray-600 dark:text-gray-300 sm:px-6">
+                  {{ v.brand }} {{ v.model }} · {{ v.color }}
+                </td>
+                <td class="px-5 py-4 sm:px-6">
+                  <span
+                    class="inline-flex rounded-full px-2.5 py-0.5 text-theme-xs font-medium"
+                    :class="statusBadgeClass(v.status)"
+                  >
+                    {{ statusLabel(v.status) }}
+                  </span>
+                </td>
+                <td class="px-5 py-4 text-theme-sm text-gray-600 dark:text-gray-300 sm:px-6">
+                  {{ (v.current_odometer ?? 0).toLocaleString() }} km
+                </td>
                 <td class="px-5 py-4 text-right sm:px-6">
                   <TableRowActions
                     :group-label="`Acciones para ${v.license_plate}`"
+                    :show-edit="canManageFleet"
+                    :show-delete="isAdmin"
                     @view="openView(v)"
                     @edit="openEdit(v)"
                     @delete="confirmDelete(v)"
@@ -107,41 +146,77 @@
           {{ editingId ? 'Editar vehículo' : 'Nuevo vehículo' }}
         </h2>
         <form class="mt-4 space-y-4" @submit.prevent="submit">
-          <div>
-            <label class="mb-1 block text-theme-sm font-medium text-gray-700 dark:text-gray-300">Placa</label>
-            <input
-              v-model="form.license_plate"
-              type="text"
-              class="w-full rounded-lg border border-gray-200 px-3 py-2 text-theme-sm uppercase dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-              required
-            />
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label class="mb-1 block text-theme-sm font-medium text-gray-700 dark:text-gray-300">Placa</label>
+              <input
+                v-model="form.license_plate"
+                type="text"
+                class="w-full rounded-lg border border-gray-200 px-3 py-2 text-theme-sm uppercase dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                required
+              />
+            </div>
+            <div>
+              <label class="mb-1 block text-theme-sm font-medium text-gray-700 dark:text-gray-300">Estado</label>
+              <select
+                v-model="form.status"
+                class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+              >
+                <option value="disponible">Disponible</option>
+                <option value="en_ruta">En ruta</option>
+                <option value="mantenimiento">Mantenimiento</option>
+              </select>
+            </div>
           </div>
-          <div>
-            <label class="mb-1 block text-theme-sm font-medium text-gray-700 dark:text-gray-300">Color</label>
-            <input
-              v-model="form.color"
-              type="text"
-              class="w-full rounded-lg border border-gray-200 px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-              required
-            />
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div>
+              <label class="mb-1 block text-theme-sm font-medium text-gray-700 dark:text-gray-300">Marca</label>
+              <input
+                v-model="form.brand"
+                type="text"
+                class="w-full rounded-lg border border-gray-200 px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                required
+              />
+            </div>
+            <div>
+              <label class="mb-1 block text-theme-sm font-medium text-gray-700 dark:text-gray-300">Modelo</label>
+              <input
+                v-model="form.model"
+                type="text"
+                class="w-full rounded-lg border border-gray-200 px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                required
+              />
+            </div>
+            <div>
+              <label class="mb-1 block text-theme-sm font-medium text-gray-700 dark:text-gray-300">Color</label>
+              <input
+                v-model="form.color"
+                type="text"
+                class="w-full rounded-lg border border-gray-200 px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                required
+              />
+            </div>
           </div>
-          <div>
-            <label class="mb-1 block text-theme-sm font-medium text-gray-700 dark:text-gray-300">Marca</label>
-            <input
-              v-model="form.brand"
-              type="text"
-              class="w-full rounded-lg border border-gray-200 px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-              required
-            />
-          </div>
-          <div>
-            <label class="mb-1 block text-theme-sm font-medium text-gray-700 dark:text-gray-300">Modelo</label>
-            <input
-              v-model="form.model"
-              type="text"
-              class="w-full rounded-lg border border-gray-200 px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-              required
-            />
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label class="mb-1 block text-theme-sm font-medium text-gray-700 dark:text-gray-300">Odómetro actual (km)</label>
+              <input
+                v-model.number="form.current_odometer"
+                type="number"
+                min="0"
+                class="w-full rounded-lg border border-gray-200 px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+              />
+            </div>
+            <div>
+              <label class="mb-1 block text-theme-sm font-medium text-gray-700 dark:text-gray-300">Mant. cada (km, opcional)</label>
+              <input
+                v-model.number="form.maintenance_interval_km"
+                type="number"
+                min="500"
+                placeholder="Ej. 5000"
+                class="w-full rounded-lg border border-gray-200 px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+              />
+            </div>
           </div>
           <div>
             <label class="mb-1 block text-theme-sm font-medium text-gray-700 dark:text-gray-300">Imagen</label>
@@ -174,18 +249,18 @@
 <script setup>
 import Swal from 'sweetalert2';
 import { onMounted, reactive, ref } from 'vue';
-import { useRouter } from 'vue-router';
 import AdminLayout from '@/components/layout/AdminLayout.vue';
 import ComponentCard from '@/components/common/ComponentCard.vue';
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue';
 import TableRowActions from '@/components/common/TableRowActions.vue';
-import { setAuthToken } from '../bootstrap';
+import { useAuth } from '../composables/useAuth';
 
-const router = useRouter();
+const { currentUser, isAdmin, canManageFleet, loadMe, logout } = useAuth();
 
-const currentUser = ref(null);
 const vehicles = ref([]);
 const meta = ref({ current_page: 1, last_page: 1 });
+const searchQuery = ref('');
+const filterStatus = ref('');
 const modalOpen = ref(false);
 const editingId = ref(null);
 const previewUrl = ref('');
@@ -196,15 +271,28 @@ const form = reactive({
   color: '',
   brand: '',
   model: '',
+  status: 'disponible',
+  current_odometer: 0,
+  maintenance_interval_km: null,
 });
 
-const loadMe = async () => {
-  const { data } = await window.axios.get('/user');
-  currentUser.value = data;
+const statusLabel = (s) => {
+  if (s === 'en_ruta') return 'En ruta';
+  if (s === 'mantenimiento') return 'Mantenimiento';
+  return 'Disponible';
+};
+
+const statusBadgeClass = (s) => {
+  if (s === 'en_ruta') return 'bg-amber-500/15 text-amber-700 dark:text-amber-300';
+  if (s === 'mantenimiento') return 'bg-rose-500/15 text-rose-700 dark:text-rose-300';
+  return 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300';
 };
 
 const loadVehicles = async (page = 1) => {
-  const { data } = await window.axios.get('/vehicles', { params: { page } });
+  const params = { page };
+  if (searchQuery.value.trim()) params.search = searchQuery.value.trim();
+  if (filterStatus.value) params.status = filterStatus.value;
+  const { data } = await window.axios.get('/vehicles', { params });
   vehicles.value = data.data;
   meta.value = {
     current_page: data.current_page,
@@ -239,6 +327,9 @@ const openCreate = () => {
   form.color = '';
   form.brand = '';
   form.model = '';
+  form.status = 'disponible';
+  form.current_odometer = 0;
+  form.maintenance_interval_km = null;
   resetPreview();
   modalOpen.value = true;
 };
@@ -249,6 +340,9 @@ const openEdit = (v) => {
   form.color = v.color;
   form.brand = v.brand;
   form.model = v.model;
+  form.status = v.status || 'disponible';
+  form.current_odometer = v.current_odometer ?? 0;
+  form.maintenance_interval_km = v.maintenance_interval_km || null;
   resetPreview();
   previewUrl.value = v.photo_url || '';
   modalOpen.value = true;
@@ -274,6 +368,8 @@ const openView = (v) => {
         <p><strong>Color:</strong> ${esc(v.color)}</p>
         <p><strong>Marca:</strong> ${esc(v.brand)}</p>
         <p><strong>Modelo:</strong> ${esc(v.model)}</p>
+        <p><strong>Estado:</strong> ${esc(statusLabel(v.status))}</p>
+        <p><strong>Odómetro:</strong> ${(v.current_odometer ?? 0).toLocaleString()} km</p>
       </div>
       ${photo}
     `,
@@ -293,6 +389,11 @@ const buildFormData = () => {
   fd.append('color', form.color);
   fd.append('brand', form.brand);
   fd.append('model', form.model);
+  fd.append('status', form.status);
+  fd.append('current_odometer', String(form.current_odometer ?? 0));
+  if (form.maintenance_interval_km) {
+    fd.append('maintenance_interval_km', String(form.maintenance_interval_km));
+  }
   if (fileRef.value) {
     fd.append('photo', fileRef.value);
   }
@@ -330,28 +431,12 @@ const confirmDelete = async (v) => {
     await Swal.fire({ icon: 'success', title: 'Eliminado', timer: 1200, showConfirmButton: false });
     await loadVehicles(meta.value.current_page);
   } catch (err) {
-    await Swal.fire({ icon: 'error', title: 'No se pudo eliminar' });
-  }
-};
-
-const logout = async () => {
-  try {
-    await window.axios.post('/logout');
-  } catch (_) {
-    /* vacío */
-  } finally {
-    setAuthToken(null);
-    await router.push({ name: 'login' });
+    await Swal.fire({ icon: 'error', title: err.response?.data?.message || 'No se pudo eliminar' });
   }
 };
 
 onMounted(async () => {
-  try {
-    await loadMe();
-    await loadVehicles(1);
-  } catch (_) {
-    setAuthToken(null);
-    await router.push({ name: 'login' });
-  }
+  await loadMe();
+  await loadVehicles(1);
 });
 </script>

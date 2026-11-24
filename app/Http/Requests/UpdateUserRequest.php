@@ -10,7 +10,7 @@ class UpdateUserRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return $this->user()?->isAdmin() ?? false;
     }
 
     public function rules(): array
@@ -23,6 +23,7 @@ class UpdateUserRequest extends FormRequest
             'email' => ['sometimes', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
             'password' => ['nullable', 'string', 'min:8'],
             'person_type' => ['sometimes', Rule::in(['funcionario', 'motorista'])],
+            'role' => ['sometimes', Rule::in(User::ROLES)],
             'driver_code' => [
                 Rule::requiredIf($this->input('person_type', $user->person_type) === 'motorista'),
                 'nullable',

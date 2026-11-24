@@ -1,6 +1,6 @@
 <template>
   <AdminLayout header-title="Usuarios" :user-name="currentUser?.name" @logout="logout">
-    <PageBreadcrumb page-title="Usuarios" subtitle="Gestión de funcionarios y motoristas">
+    <PageBreadcrumb page-title="Usuarios" subtitle="Gestión de funcionarios, despachadores y motoristas">
       <template #actions>
         <button
           type="button"
@@ -12,7 +12,33 @@
       </template>
     </PageBreadcrumb>
 
-    <ComponentCard title="Listado" desc="Filtra y administra el personal del sistema.">
+    <ComponentCard title="Listado" desc="Filtra y administra el personal y sus roles en el sistema.">
+      <div class="mb-4 flex flex-wrap items-end gap-3">
+        <div>
+          <label class="mb-1 block text-theme-xs font-medium text-gray-600 dark:text-gray-400">Buscar</label>
+          <input
+            v-model="searchQuery"
+            type="text"
+            placeholder="Nombre, correo o código..."
+            class="rounded-lg border border-gray-200 px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+            @keyup.enter="loadUsers(1)"
+          />
+        </div>
+        <div>
+          <label class="mb-1 block text-theme-xs font-medium text-gray-600 dark:text-gray-400">Rol</label>
+          <select
+            v-model="filterRole"
+            class="rounded-lg border border-gray-200 px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+            @change="loadUsers(1)"
+          >
+            <option value="">Todos</option>
+            <option value="admin">Admin</option>
+            <option value="despachador">Despachador</option>
+            <option value="motorista">Motorista</option>
+          </select>
+        </div>
+      </div>
+
       <div class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
         <div class="max-w-full overflow-x-auto">
           <table class="min-w-full">
@@ -26,6 +52,9 @@
                 </th>
                 <th class="px-5 py-3 text-left sm:px-6">
                   <p class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Tipo</p>
+                </th>
+                <th class="px-5 py-3 text-left sm:px-6">
+                  <p class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Rol</p>
                 </th>
                 <th class="px-5 py-3 text-left sm:px-6">
                   <p class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Código</p>
@@ -58,12 +87,21 @@
                     {{ u.person_type === 'motorista' ? 'Motorista' : 'Funcionario' }}
                   </span>
                 </td>
+                <td class="px-5 py-4 sm:px-6">
+                  <span
+                    class="rounded-full px-2 py-0.5 text-theme-xs font-medium capitalize"
+                    :class="roleBadgeClass(u.role)"
+                  >
+                    {{ u.role || 'motorista' }}
+                  </span>
+                </td>
                 <td class="px-5 py-4 text-theme-sm text-gray-600 dark:text-gray-300 sm:px-6">
                   {{ u.driver_code || '—' }}
                 </td>
                 <td class="px-5 py-4 text-right sm:px-6">
                   <TableRowActions
                     :group-label="`Acciones para ${u.name}`"
+                    :show-delete="u.id !== currentUser?.id"
                     @view="openView(u)"
                     @edit="openEdit(u)"
                     @delete="confirmDelete(u)"
@@ -112,17 +150,32 @@
           {{ editingId ? 'Editar usuario' : 'Nuevo usuario' }}
         </h2>
         <form class="mt-4 space-y-4" @submit.prevent="submit">
-          <div>
-            <label class="mb-1 block text-theme-sm font-medium text-gray-700 dark:text-gray-300">Tipo</label>
-            <select
-              v-model="form.person_type"
-              class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-              required
-            >
-              <option value="funcionario">Funcionario</option>
-              <option value="motorista">Motorista</option>
-            </select>
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label class="mb-1 block text-theme-sm font-medium text-gray-700 dark:text-gray-300">Tipo</label>
+              <select
+                v-model="form.person_type"
+                class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                required
+              >
+                <option value="funcionario">Funcionario</option>
+                <option value="motorista">Motorista</option>
+              </select>
+            </div>
+            <div>
+              <label class="mb-1 block text-theme-sm font-medium text-gray-700 dark:text-gray-300">Rol de acceso</label>
+              <select
+                v-model="form.role"
+                class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-theme-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                required
+              >
+                <option value="admin">Administrador</option>
+                <option value="despachador">Despachador / Caseta</option>
+                <option value="motorista">Motorista (solo campo)</option>
+              </select>
+            </div>
           </div>
+
           <div>
             <label class="mb-1 block text-theme-sm font-medium text-gray-700 dark:text-gray-300">
               {{ form.person_type === 'motorista' ? 'Nombre del motorista' : 'Nombre del funcionario' }}
@@ -202,18 +255,18 @@
 <script setup>
 import Swal from 'sweetalert2';
 import { onMounted, reactive, ref, watch } from 'vue';
-import { useRouter } from 'vue-router';
 import AdminLayout from '@/components/layout/AdminLayout.vue';
 import ComponentCard from '@/components/common/ComponentCard.vue';
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue';
 import TableRowActions from '@/components/common/TableRowActions.vue';
-import { setAuthToken } from '../bootstrap';
+import { useAuth } from '../composables/useAuth';
 
-const router = useRouter();
+const { currentUser, loadMe, logout } = useAuth();
 
-const currentUser = ref(null);
 const users = ref([]);
 const meta = ref({ current_page: 1, last_page: 1 });
+const searchQuery = ref('');
+const filterRole = ref('');
 const modalOpen = ref(false);
 const editingId = ref(null);
 const previewUrl = ref('');
@@ -224,16 +277,21 @@ const form = reactive({
   email: '',
   password: '',
   person_type: 'funcionario',
+  role: 'despachador',
   driver_code: '',
 });
 
-const loadMe = async () => {
-  const { data } = await window.axios.get('/user');
-  currentUser.value = data;
+const roleBadgeClass = (role) => {
+  if (role === 'admin') return 'bg-purple-500/15 text-purple-700 dark:text-purple-300';
+  if (role === 'despachador') return 'bg-sky-500/15 text-sky-700 dark:text-sky-300';
+  return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300';
 };
 
 const loadUsers = async (page = 1) => {
-  const { data } = await window.axios.get('/users', { params: { page } });
+  const params = { page };
+  if (searchQuery.value.trim()) params.search = searchQuery.value.trim();
+  if (filterRole.value) params.role = filterRole.value;
+  const { data } = await window.axios.get('/users', { params });
   users.value = data.data;
   meta.value = {
     current_page: data.current_page,
@@ -268,6 +326,7 @@ const openCreate = () => {
   form.email = '';
   form.password = '';
   form.person_type = 'funcionario';
+  form.role = 'despachador';
   form.driver_code = '';
   resetPreview();
   modalOpen.value = true;
@@ -279,6 +338,7 @@ const openEdit = (u) => {
   form.email = u.email;
   form.password = '';
   form.person_type = u.person_type || 'funcionario';
+  form.role = u.role || 'motorista';
   form.driver_code = u.driver_code || '';
   resetPreview();
   previewUrl.value = u.photo_url || '';
@@ -306,6 +366,7 @@ const openView = (u) => {
       <div class="text-left text-theme-sm space-y-2 text-gray-700">
         <p><strong>Correo:</strong> ${esc(u.email)}</p>
         <p><strong>Tipo:</strong> ${tipo}</p>
+        <p><strong>Rol:</strong> ${esc(u.role || 'motorista')}</p>
         <p><strong>Código:</strong> ${codigo}</p>
       </div>
       ${photo}
@@ -325,6 +386,7 @@ const buildFormData = () => {
   fd.append('name', form.name);
   fd.append('email', form.email);
   fd.append('person_type', form.person_type);
+  fd.append('role', form.role);
   if (form.person_type === 'motorista') {
     fd.append('driver_code', form.driver_code);
   }
@@ -372,18 +434,7 @@ const confirmDelete = async (u) => {
     await Swal.fire({ icon: 'success', title: 'Eliminado', timer: 1200, showConfirmButton: false });
     await loadUsers(meta.value.current_page);
   } catch (err) {
-    await Swal.fire({ icon: 'error', title: 'No se pudo eliminar' });
-  }
-};
-
-const logout = async () => {
-  try {
-    await window.axios.post('/logout');
-  } catch (_) {
-    /* vacío */
-  } finally {
-    setAuthToken(null);
-    await router.push({ name: 'login' });
+    await Swal.fire({ icon: 'error', title: err.response?.data?.message || 'No se pudo eliminar' });
   }
 };
 
@@ -392,17 +443,14 @@ watch(
   (v) => {
     if (v === 'funcionario') {
       form.driver_code = '';
+    } else if (!editingId.value) {
+      form.role = 'motorista';
     }
   },
 );
 
 onMounted(async () => {
-  try {
-    await loadMe();
-    await loadUsers(1);
-  } catch (_) {
-    setAuthToken(null);
-    await router.push({ name: 'login' });
-  }
+  await loadMe();
+  await loadUsers(1);
 });
 </script>

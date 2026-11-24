@@ -1,0 +1,31 @@
+<?php
+
+return [
+
+    /*
+    |--------------------------------------------------------------------------
+    | Cross-Origin Resource Sharing (CORS) Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configuración para permitir peticiones desde apps móviles (Flutter,
+    | Capacitor) y clientes web en desarrollo (Vite remoto).
+    |
+    */
+
+    'paths' => ['api/*', 'sanctum/csrf-cookie', 'storage/*'],
+
+    'allowed_methods' => ['*'],
+
+    'allowed_origins' => array_filter(array_map('trim', explode(',', env('CORS_ALLOWED_ORIGINS', '*')))),
+
+    'allowed_origins_patterns' => [],
+
+    'allowed_headers' => ['*'],
+
+    'exposed_headers' => [],
+
+    'max_age' => 0,
+
+    'supports_credentials' => filter_var(env('CORS_SUPPORTS_CREDENTIALS', false), FILTER_VALIDATE_BOOL),
+
+];
