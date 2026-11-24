@@ -11,6 +11,7 @@
 <script setup>
 import { computed } from 'vue';
 import {
+  ASSIGNMENT_STATUS_META,
   BITACORA_TYPE_META,
   INCIDENT_SEVERITY_META,
   INCIDENT_STATUS_META,
@@ -27,6 +28,7 @@ const props = defineProps({
 const maps = {
   vehicleStatus: VEHICLE_STATUS_META,
   bitacoraType: BITACORA_TYPE_META,
+  assignmentStatus: ASSIGNMENT_STATUS_META,
   incidentStatus: INCIDENT_STATUS_META,
   incidentSeverity: INCIDENT_SEVERITY_META,
   userRole: USER_ROLE_META,

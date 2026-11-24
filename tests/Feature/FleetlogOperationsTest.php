@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Assignment;
 use App\Models\Incident;
 use App\Models\User;
 use App\Models\Vehicle;
@@ -50,24 +51,49 @@ class FleetlogOperationsTest extends TestCase
             'current_odometer' => 5000,
         ]);
 
-        // Odómetro menor al actual debe fallar
-        $this->actingAs($driver)->postJson('/api/bitacoras', [
-            'vehicle_id' => $vehicle->id,
-            'destination' => 'Bodega Central',
-            'odometer_km' => 4500,
-        ])->assertUnprocessable();
-
-        // Registrar salida válida
+        // Motorista no puede iniciar salida libre sin asignación
         $this->actingAs($driver)->postJson('/api/bitacoras', [
             'vehicle_id' => $vehicle->id,
             'destination' => 'Bodega Central',
             'odometer_km' => 5100,
+        ])->assertUnprocessable();
+
+        // Admin crea una asignación con coordenadas e instrucción oficial
+        $assignmentResp = $this->actingAs($admin)->postJson('/api/assignments', [
+            'vehicle_id' => $vehicle->id,
+            'driver_id' => $driver->id,
+            'scheduled_date' => now()->toDateString(),
+            'destination' => 'Centro Histórico de El Salvador',
+            'destination_address' => 'Plaza Gerardo Barrios, San Salvador',
+            'latitude' => 13.6978,
+            'longitude' => -89.1914,
+            'description' => 'Entregar suministros',
+            'official_instruction' => 'Esperar a los compañeros a que regresen',
+        ])->assertCreated();
+
+        $assignmentId = $assignmentResp->json('assignment.id');
+
+        // Odómetro menor al actual debe fallar
+        $this->actingAs($driver)->postJson('/api/bitacoras', [
+            'assignment_id' => $assignmentId,
+            'vehicle_id' => $vehicle->id,
+            'odometer_km' => 4500,
+        ])->assertUnprocessable();
+
+        // Registrar salida válida desde la asignación
+        $this->actingAs($driver)->postJson('/api/bitacoras', [
+            'assignment_id' => $assignmentId,
+            'odometer_km' => 5100,
             'fuel_level' => '3/4',
-        ])->assertCreated()->assertJsonPath('type', 'salida');
+        ])->assertCreated()
+            ->assertJsonPath('type', 'salida')
+            ->assertJsonPath('destination', 'Centro Histórico de El Salvador')
+            ->assertJsonPath('official_instruction', 'Esperar a los compañeros a que regresen');
 
         $vehicle->refresh();
         $this->assertSame(Vehicle::STATUS_IN_ROUTE, $vehicle->status);
         $this->assertSame(5100, $vehicle->current_odometer);
+        $this->assertSame(Assignment::STATUS_IN_PROGRESS, Assignment::find($assignmentId)->status);
 
         // Dashboard refleja el viaje activo y conductor en ruta
         $this->actingAs($admin)->getJson('/api/dashboard')
@@ -76,7 +102,7 @@ class FleetlogOperationsTest extends TestCase
             ->assertJsonPath('summary.unidades_disponibles', 0)
             ->assertJsonPath('summary.conductores_en_ruta', 1);
 
-        // Registrar regreso
+        // Registrar regreso cierra automáticamente la asignación
         $this->actingAs($driver)->postJson('/api/bitacoras', [
             'vehicle_id' => $vehicle->id,
             'odometer_km' => 5250,
@@ -86,6 +112,64 @@ class FleetlogOperationsTest extends TestCase
         $vehicle->refresh();
         $this->assertSame(Vehicle::STATUS_AVAILABLE, $vehicle->status);
         $this->assertSame(5250, $vehicle->current_odometer);
+        $this->assertSame(Assignment::STATUS_COMPLETED, Assignment::find($assignmentId)->status);
+    }
+
+    public function test_assignments_batch_schedule_and_emergency_reassignment(): void
+    {
+        $dispatcher = User::factory()->create(['role' => User::ROLE_DISPATCHER]);
+        $driverA = User::factory()->driver()->create();
+        $driverB = User::factory()->driver()->create();
+
+        $vehicle = Vehicle::query()->create([
+            'license_plate' => 'HDD-2026',
+            'color' => 'Blanco',
+            'brand' => 'Toyota',
+            'model' => 'Hiace',
+            'status' => Vehicle::STATUS_AVAILABLE,
+            'current_odometer' => 8000,
+        ]);
+
+        // Motorista no puede crear asignaciones
+        $this->actingAs($driverA)->postJson('/api/assignments', [
+            'vehicle_id' => $vehicle->id,
+            'driver_id' => $driverA->id,
+            'scheduled_date' => now()->toDateString(),
+            'destination' => 'Centro Histórico',
+        ])->assertForbidden();
+
+        // Jefe de motoristas (despachador) agenda una semana completa (7 días filtrados)
+        $batch = $this->actingAs($dispatcher)->postJson('/api/assignments', [
+            'vehicle_id' => $vehicle->id,
+            'driver_id' => $driverA->id,
+            'date_from' => '2026-12-01',
+            'date_to' => '2026-12-07',
+            'destination' => 'Centro Histórico de El Salvador',
+            'official_instruction' => 'No dejar la unidad sola en zona restringida',
+        ])->assertCreated();
+
+        $this->assertSame(7, $batch->json('created_count'));
+        $firstId = $batch->json('data.0.id');
+
+        // Driver B no puede iniciar salida de una asignación de Driver A sin reasignación
+        $this->actingAs($driverB)->postJson('/api/bitacoras', [
+            'assignment_id' => $firstId,
+            'odometer_km' => 8050,
+        ])->assertUnprocessable();
+
+        // Driver B toma la asignación por emergencia con razón justificada
+        $this->actingAs($driverB)->postJson("/api/assignments/{$firstId}/emergency-reassign", [
+            'reassignment_reason' => 'Juan Pérez presentó incapacidad médica de último minuto.',
+        ])->assertOk()
+            ->assertJsonPath('is_emergency_reassigned', true)
+            ->assertJsonPath('driver_id', $driverB->id)
+            ->assertJsonPath('original_driver_id', $driverA->id);
+
+        // Ahora Driver B sí puede iniciar la salida
+        $this->actingAs($driverB)->postJson('/api/bitacoras', [
+            'assignment_id' => $firstId,
+            'odometer_km' => 8050,
+        ])->assertCreated()->assertJsonPath('driver_id', $driverB->id);
     }
 
     public function test_incident_reporting_and_maintenance_block(): void
@@ -114,8 +198,8 @@ class FleetlogOperationsTest extends TestCase
         $vehicle->refresh();
         $this->assertSame(Vehicle::STATUS_MAINTENANCE, $vehicle->status);
 
-        // No debe permitir salida si está en mantenimiento
-        $this->actingAs($driver)->postJson('/api/bitacoras', [
+        // No debe permitir salida si está en mantenimiento (ni por admin)
+        $this->actingAs($admin)->postJson('/api/bitacoras', [
             'vehicle_id' => $vehicle->id,
             'destination' => 'Puerto Cortés',
         ])->assertUnprocessable();

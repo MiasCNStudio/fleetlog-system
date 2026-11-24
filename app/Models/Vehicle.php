@@ -69,6 +69,11 @@ class Vehicle extends Model
         return $this->hasMany(Incident::class);
     }
 
+    public function assignments(): HasMany
+    {
+        return $this->hasMany(Assignment::class);
+    }
+
     /**
      * Si el último movimiento fue regreso (o no hay registros), el vehículo está en empresa → siguiente es salida.
      * Si el último fue salida, está fuera → siguiente es regreso.

@@ -23,12 +23,18 @@ class Bitacora extends Model
         'vehicle_id',
         'user_id',
         'driver_id',
+        'assignment_id',
         'type',
         'recorded_at',
         'odometer_km',
         'fuel_level',
         'destination',
+        'destination_address',
+        'latitude',
+        'longitude',
+        'place_id',
         'companions',
+        'official_instruction',
     ];
 
     protected function casts(): array
@@ -36,6 +42,8 @@ class Bitacora extends Model
         return [
             'recorded_at' => 'datetime',
             'odometer_km' => 'integer',
+            'latitude' => 'float',
+            'longitude' => 'float',
         ];
     }
 
@@ -52,5 +60,10 @@ class Bitacora extends Model
     public function driver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'driver_id');
+    }
+
+    public function assignment(): BelongsTo
+    {
+        return $this->belongsTo(Assignment::class);
     }
 }

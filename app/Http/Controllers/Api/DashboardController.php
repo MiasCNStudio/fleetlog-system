@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Assignment;
 use App\Models\Bitacora;
 use App\Models\Incident;
 use App\Models\Vehicle;
@@ -85,6 +86,9 @@ class DashboardController extends Controller
                 'brand' => $vehicle->brand,
                 'model' => $vehicle->model,
                 'destination' => $b?->destination,
+                'destination_address' => $b?->destination_address,
+                'latitude' => $b?->latitude,
+                'longitude' => $b?->longitude,
                 'recorded_at' => $b?->recorded_at?->toIso8601String(),
                 'driver_name' => $b?->driver?->name ?? $b?->user?->name,
                 'odometer_km' => $b?->odometer_km ?? $vehicle->current_odometer,
@@ -98,6 +102,29 @@ class DashboardController extends Controller
             ->limit(5)
             ->get();
 
+        $pendingAssignmentsCount = Assignment::query()
+            ->where('status', Assignment::STATUS_PENDING)
+            ->whereDate('scheduled_date', '>=', today())
+            ->count();
+
+        $emergencyReassignmentsToday = Assignment::query()
+            ->where('is_emergency_reassigned', true)
+            ->whereDate('reassigned_at', today())
+            ->count();
+
+        $upcomingAssignments = Assignment::query()
+            ->with([
+                'vehicle:id,license_plate,brand,model,status',
+                'driver:id,name,driver_code',
+                'originalDriver:id,name',
+            ])
+            ->whereIn('status', [Assignment::STATUS_PENDING, Assignment::STATUS_IN_PROGRESS])
+            ->whereDate('scheduled_date', '>=', today())
+            ->orderBy('scheduled_date')
+            ->orderBy('scheduled_time')
+            ->limit(5)
+            ->get();
+
         return response()->json([
             'summary' => [
                 'viajes_activos' => $activeTripsCount,
@@ -107,6 +134,8 @@ class DashboardController extends Controller
                 'incidencias_abiertas' => $openIncidents,
                 'unidades_mantenimiento' => $maintenanceVehicles,
                 'total_vehiculos' => $totalVehicles,
+                'asignaciones_pendientes' => $pendingAssignmentsCount,
+                'reasignaciones_emergencia_hoy' => $emergencyReassignmentsToday,
             ],
             'series' => [
                 'categories' => $categories,
@@ -116,6 +145,7 @@ class DashboardController extends Controller
             ],
             'active_trips' => $activeTrips,
             'recent_incidents' => $recentIncidents,
+            'upcoming_assignments' => $upcomingAssignments,
             'user' => $request->user(),
         ]);
     }

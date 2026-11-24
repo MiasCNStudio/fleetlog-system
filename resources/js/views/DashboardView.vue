@@ -241,22 +241,22 @@
         </div>
 
         <div class="mt-4 space-y-2">
-          <router-link to="/bitacora" class="fleet-btn-primary group h-10 w-full justify-between px-3.5">
-            <span>Registrar movimiento</span>
+          <router-link to="/asignaciones" class="fleet-btn-primary group h-10 w-full justify-between px-3.5">
+            <span>Agenda y asignaciones</span>
             <svg class="size-4 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+            </svg>
+          </router-link>
+          <router-link to="/bitacora" class="fleet-btn-secondary group h-10 w-full justify-between px-3.5">
+            <span>Bitácora de movimientos</span>
+            <svg class="size-4 text-gray-400 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
             </svg>
           </router-link>
           <router-link to="/incidencias" class="fleet-btn-secondary group h-10 w-full justify-between px-3.5">
             <span>Reportar incidencia</span>
             <svg class="size-4 text-gray-400 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9.303 3.376c-.866 1.5.217 3.374 1.948 3.374H2.697c-1.73 0-2.813-1.874-1.948-3.374L10.051 3.378c.866-1.5 3.032-1.5 3.898 0l7.354 12.748z" />
-            </svg>
-          </router-link>
-          <router-link to="/vehiculos" class="fleet-btn-secondary group h-10 w-full justify-between px-3.5">
-            <span>Consultar vehículos</span>
-            <svg class="size-4 text-gray-400 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
             </svg>
           </router-link>
         </div>
@@ -334,7 +334,27 @@
             </div>
 
             <div class="flex shrink-0 flex-row items-center justify-between gap-3 sm:flex-col sm:items-end sm:gap-1">
-              <StatusBadge kind="vehicleStatus" value="en_ruta" />
+              <div class="flex items-center gap-2">
+                <a
+                  v-if="t.destination || t.latitude"
+                  :href="googleMapsUrl({ destination: t.destination, destinationAddress: t.destination_address, latitude: t.latitude, longitude: t.longitude })"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="text-[11px] font-medium text-brand-600 hover:underline dark:text-brand-400"
+                >
+                  Maps ↗
+                </a>
+                <a
+                  v-if="t.destination || t.latitude"
+                  :href="wazeUrl({ destination: t.destination, destinationAddress: t.destination_address, latitude: t.latitude, longitude: t.longitude })"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="text-[11px] font-medium text-sky-600 hover:underline dark:text-sky-400"
+                >
+                  Waze ↗
+                </a>
+                <StatusBadge kind="vehicleStatus" value="en_ruta" />
+              </div>
               <div class="flex items-center gap-2 text-[11px] tabular-nums text-gray-500 dark:text-gray-400">
                 <span v-if="t.recorded_at">{{ formatShortTime(t.recorded_at) }}</span>
                 <span v-if="t.odometer_km !== null && t.odometer_km !== undefined">
@@ -420,6 +440,7 @@ import AdminLayout from '@/components/layout/AdminLayout.vue';
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue';
 import StatusBadge from '@/components/common/StatusBadge.vue';
 import { setCurrentUser, useAuth } from '../composables/useAuth';
+import { googleMapsUrl, wazeUrl } from '../utils/maps';
 
 const { currentUser, logout } = useAuth();
 

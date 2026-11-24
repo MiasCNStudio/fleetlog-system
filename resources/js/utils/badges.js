@@ -29,6 +29,29 @@ export const BITACORA_TYPE_META = {
   },
 };
 
+export const ASSIGNMENT_STATUS_META = {
+  pendiente: {
+    label: 'Pendiente',
+    badge: 'bg-amber-500/15 text-amber-800 ring-1 ring-inset ring-amber-500/25 dark:bg-amber-500/15 dark:text-amber-300 dark:ring-amber-400/25',
+    dot: 'bg-amber-500',
+  },
+  en_curso: {
+    label: 'En curso',
+    badge: 'bg-brand-50 text-brand-700 ring-1 ring-inset ring-brand-500/20 dark:bg-brand-500/15 dark:text-brand-300 dark:ring-brand-400/25',
+    dot: 'bg-brand-500',
+  },
+  completada: {
+    label: 'Completada',
+    badge: 'bg-emerald-500/15 text-emerald-700 ring-1 ring-inset ring-emerald-500/20 dark:bg-emerald-500/15 dark:text-emerald-300 dark:ring-emerald-400/20',
+    dot: 'bg-emerald-500',
+  },
+  cancelada: {
+    label: 'Cancelada',
+    badge: 'bg-gray-100 text-gray-600 ring-1 ring-inset ring-gray-300/70 dark:bg-gray-800 dark:text-gray-400 dark:ring-gray-700',
+    dot: 'bg-gray-400',
+  },
+};
+
 export const INCIDENT_STATUS_META = {
   abierta: {
     label: 'Abierta',
@@ -76,7 +99,7 @@ export const USER_ROLE_META = {
     badge: 'bg-purple-500/15 text-purple-700 ring-1 ring-inset ring-purple-500/20 dark:bg-purple-500/15 dark:text-purple-300 dark:ring-purple-400/25',
   },
   despachador: {
-    label: 'Despachador',
+    label: 'Jefe de motoristas',
     badge: 'bg-sky-500/15 text-sky-700 ring-1 ring-inset ring-sky-500/20 dark:bg-sky-500/15 dark:text-sky-300 dark:ring-sky-400/25',
   },
   motorista: {

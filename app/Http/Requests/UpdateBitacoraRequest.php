@@ -20,7 +20,12 @@ class UpdateBitacoraRequest extends FormRequest
             'odometer_km' => ['sometimes', 'nullable', 'integer', 'min:0'],
             'fuel_level' => ['sometimes', 'nullable', Rule::in(Bitacora::FUEL_LEVELS)],
             'destination' => ['sometimes', 'nullable', 'string', 'max:2000'],
+            'destination_address' => ['sometimes', 'nullable', 'string', 'max:2000'],
+            'latitude' => ['sometimes', 'nullable', 'numeric', 'between:-90,90'],
+            'longitude' => ['sometimes', 'nullable', 'numeric', 'between:-180,180'],
+            'place_id' => ['sometimes', 'nullable', 'string', 'max:255'],
             'companions' => ['sometimes', 'nullable', 'string', 'max:2000'],
+            'official_instruction' => ['sometimes', 'nullable', 'string', 'max:2000'],
         ];
     }
 }

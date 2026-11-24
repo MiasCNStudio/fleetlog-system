@@ -64,7 +64,7 @@
           >
             <option value="">Todos</option>
             <option value="admin">Admin</option>
-            <option value="despachador">Despachador</option>
+            <option value="despachador">Jefe de motoristas / Despachador</option>
             <option value="motorista">Motorista</option>
           </select>
         </div>
@@ -185,7 +185,7 @@
             <label for="user-role" class="fleet-field-label">Rol de acceso</label>
             <select id="user-role" v-model="form.role" class="fleet-select" required>
               <option value="admin">Administrador</option>
-              <option value="despachador">Despachador / Caseta</option>
+              <option value="despachador">Jefe de motoristas / Despachador</option>
               <option value="motorista">Motorista (solo campo)</option>
             </select>
           </div>
