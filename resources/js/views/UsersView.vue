@@ -465,6 +465,9 @@ const submit = async () => {
   try {
     if (editingId.value) {
       await window.axios.post(`/users/${editingId.value}`, buildFormData());
+      if (Number(editingId.value) === Number(currentUser.value?.id)) {
+        await loadMe();
+      }
     } else {
       await window.axios.post('/users', buildFormData());
     }

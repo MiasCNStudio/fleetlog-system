@@ -6,6 +6,7 @@ use App\Models\Assignment;
 use App\Models\Incident;
 use App\Models\User;
 use App\Models\Vehicle;
+use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -592,5 +593,30 @@ class FleetlogOperationsTest extends TestCase
         $this->assertEquals(60.0, (float) $summary->json('totals.cost_usd'));
         $this->assertEquals(0.4, (float) $summary->json('totals.cost_per_km'));
         $summary->assertJsonPath('by_vehicle.0.license_plate', 'P888999');
+    }
+
+    public function test_user_name_update_persists_and_is_not_overwritten_by_seeder(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $admin = User::query()->where('email', 'admin@fleetlog.test')->firstOrFail();
+        $driver = User::query()->where('email', 'motorista@fleetlog.test')->firstOrFail();
+
+        $this->actingAs($admin)->postJson("/api/users/{$driver->id}", [
+            'name' => 'Ricardo Gonzales',
+            'email' => $driver->email,
+            'person_type' => $driver->person_type,
+            'role' => $driver->role,
+            'driver_code' => $driver->driver_code,
+        ])->assertOk()->assertJsonPath('name', 'Ricardo Gonzales');
+
+        // Simular reinicio de contenedor con AUTO_SEED=true
+        $this->seed(DatabaseSeeder::class);
+
+        $this->assertSame('Ricardo Gonzales', $driver->fresh()->name);
+        $this->actingAs($admin)
+            ->getJson('/api/drivers/options')
+            ->assertOk()
+            ->assertJsonFragment(['name' => 'Ricardo Gonzales']);
     }
 }

@@ -15,7 +15,11 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        User::query()->updateOrCreate(
+        if (User::query()->exists()) {
+            return;
+        }
+
+        User::query()->firstOrCreate(
             ['email' => 'admin@fleetlog.test'],
             [
                 'name' => 'Administrador Fleetlog',
@@ -27,7 +31,7 @@ class DatabaseSeeder extends Seeder
             ],
         );
 
-        User::query()->updateOrCreate(
+        User::query()->firstOrCreate(
             ['email' => 'motorista@fleetlog.test'],
             [
                 'name' => 'Motorista Demo',
