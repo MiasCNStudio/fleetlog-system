@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Laravel\Sanctum\PersonalAccessToken;
 
 class TripTrackingService
 {
@@ -43,14 +44,15 @@ class TripTrackingService
     {
         $req = $request ?? request();
         $token = $authUser->currentAccessToken();
+        $personalToken = $token instanceof PersonalAccessToken ? $token : null;
 
         $rawUuid = trim((string) ($payload['device_uuid'] ?? $req?->header('X-Device-UUID') ?? ''));
-        $rawName = trim((string) ($payload['device_name'] ?? $req?->header('X-Device-Name') ?? ($token?->name ?: 'web-dashboard')));
+        $rawName = trim((string) ($payload['device_name'] ?? $req?->header('X-Device-Name') ?? ($personalToken?->name ?: 'web-dashboard')));
         $rawPlatform = trim((string) ($payload['device_platform'] ?? $req?->header('X-Device-Platform') ?? ''));
 
         if ($rawUuid === '') {
-            if ($token) {
-                $rawUuid = 'token:'.$token->id;
+            if ($personalToken) {
+                $rawUuid = 'token:'.$personalToken->id;
             } else {
                 $ua = substr(sha1((string) ($req?->userAgent() ?? 'web')), 0, 12);
                 $rawUuid = 'web:'.$authUser->id.':'.$ua;
@@ -65,7 +67,7 @@ class TripTrackingService
             'device_uuid' => mb_substr($rawUuid, 0, 128),
             'device_name' => mb_substr($rawName !== '' ? $rawName : 'Dispositivo sin nombre', 0, 120),
             'device_platform' => mb_substr($rawPlatform, 0, 40),
-            'token_id' => $token?->id,
+            'token_id' => $personalToken?->id,
         ];
     }
 

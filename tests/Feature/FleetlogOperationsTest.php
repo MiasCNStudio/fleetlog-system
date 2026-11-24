@@ -283,9 +283,9 @@ class FleetlogOperationsTest extends TestCase
 
         $vehicle = Vehicle::query()->create([
             'license_plate' => 'P-99001',
+            'color' => 'Blanco',
             'brand' => 'Toyota',
             'model' => 'Hiace',
-            'year' => 2024,
             'status' => Vehicle::STATUS_AVAILABLE,
             'current_odometer' => 5000,
         ]);
