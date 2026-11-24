@@ -40,7 +40,7 @@ case "$cmd" in
     docker compose exec app php artisan migrate --force
     ;;
   test)
-    docker compose exec app php artisan test
+    docker compose exec -e APP_ENV=testing -e DB_CONNECTION=sqlite -e DB_DATABASE=:memory: app php artisan test
     ;;
   shell)
     docker compose exec app bash
