@@ -119,7 +119,7 @@
                   <p class="text-gray-500 dark:text-gray-400">{{ formatCompactTime(b.recorded_at) }}</p>
                 </td>
                 <td class="px-2 py-3">
-                  <span class="inline-block rounded bg-gray-100 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-gray-900 dark:bg-gray-800 dark:text-white">
+                  <span class="inline-block whitespace-nowrap rounded bg-gray-100 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-gray-900 dark:bg-gray-800 dark:text-white">
                     {{ b.vehicle?.license_plate }}
                   </span>
                   <div class="mt-1 flex items-center gap-1">
@@ -135,17 +135,15 @@
                     </span>
                   </div>
                 </td>
-                <td class="max-w-[96px] truncate px-2 py-3 text-theme-xs text-gray-700 dark:text-gray-200" :title="b.driver?.name || b.user?.name || ''">
+                <td class="max-w-[92px] truncate px-2 py-3 text-theme-xs text-gray-700 dark:text-gray-200" :title="b.driver?.name || b.user?.name || ''">
                   {{ b.driver?.name || b.user?.name }}
                 </td>
-                <td class="whitespace-nowrap px-2.5 py-3 text-right">
+                <td class="whitespace-nowrap px-2 text-right">
                   <TableRowActions
-                    :group-label="`Acciones bitácora ${b.id}`"
-                    :show-edit="canManageFleet"
-                    :show-delete="isAdmin"
+                    :group-label="`Ver bitácora ${b.id}`"
+                    :show-edit="false"
+                    :show-delete="false"
                     @view="openView(b)"
-                    @edit="openEdit(b)"
-                    @delete="confirmDelete(b)"
                   />
                 </td>
               </tr>
@@ -615,6 +613,22 @@
       </div>
 
       <template #footer>
+        <button
+          v-if="detailItem && canManageFleet"
+          type="button"
+          class="fleet-btn-secondary"
+          @click="detailOpen = false; openEdit(detailItem)"
+        >
+          Editar
+        </button>
+        <button
+          v-if="detailItem && isAdmin"
+          type="button"
+          class="fleet-btn-danger"
+          @click="detailOpen = false; confirmDelete(detailItem)"
+        >
+          Eliminar
+        </button>
         <button type="button" class="fleet-btn-primary" @click="detailOpen = false">
           Cerrar
         </button>
