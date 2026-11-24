@@ -35,7 +35,7 @@
                 {{ usingGoogleLive ? 'Google Maps' : 'Mapa en vivo' }}
               </span>
             </div>
-            <div ref="liveMapEl" class="h-64 w-full bg-slate-100 dark:bg-slate-900 sm:h-72" />
+            <div ref="liveMapEl" class="relative isolate z-0 h-64 w-full bg-slate-100 dark:bg-slate-900 sm:h-72" />
           </div>
 
           <div class="space-y-3 lg:col-span-5">
@@ -425,7 +425,9 @@ const renderLiveMap = async () => {
 
     const icon = L.divIcon({
       className: 'fleetlog-live-unit',
-      html: `<div style="padding:3px 7px;border-radius:9999px;background:${s.has_sos_alert ? '#e11d48' : '#465fff'};border:2px solid #fff;color:#fff;font-size:10px;font-weight:700;white-space:nowrap;box-shadow:0 3px 10px rgba(15,23,42,0.35);">${s.vehicle?.license_plate || 'Unidad'}</div>`,
+      iconSize: null,
+      iconAnchor: [38, 12],
+      html: `<div style="display:inline-flex;align-items:center;padding:3px 9px;border-radius:9999px;background:${s.has_sos_alert ? '#e11d48' : '#465fff'};border:2px solid #fff;color:#fff;font-size:10.5px;font-weight:700;line-height:1.2;white-space:nowrap;box-shadow:0 3px 10px rgba(15,23,42,0.35);">${s.vehicle?.license_plate || 'Unidad'}</div>`,
     });
 
     L.marker(pos, { icon })

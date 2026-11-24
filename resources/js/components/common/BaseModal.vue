@@ -2,7 +2,7 @@
   <Teleport to="body">
     <div
       v-if="open"
-      class="fixed inset-0 z-[60] flex items-center justify-center bg-gray-950/60 p-3 backdrop-blur-[2px] sm:p-4"
+      class="fixed inset-0 z-[1100] flex items-center justify-center bg-gray-950/60 p-3 backdrop-blur-[2px] sm:p-4"
       role="dialog"
       aria-modal="true"
       :aria-labelledby="titleId"

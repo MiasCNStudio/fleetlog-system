@@ -53,7 +53,7 @@
           </span>
         </div>
 
-        <div v-if="points.length > 0" ref="mapEl" class="h-72 w-full bg-slate-100 dark:bg-slate-900 sm:h-80" />
+        <div v-if="points.length > 0" ref="mapEl" class="relative isolate z-0 h-72 w-full bg-slate-100 dark:bg-slate-900 sm:h-80" />
         <div
           v-else
           class="flex h-48 flex-col items-center justify-center gap-1.5 bg-gray-50 px-4 text-center text-theme-xs text-gray-500 dark:bg-white/[0.02] dark:text-gray-400"

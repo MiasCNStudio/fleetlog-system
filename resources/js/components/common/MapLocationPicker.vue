@@ -96,7 +96,7 @@
           {{ usingGoogle ? 'Google Maps' : 'Mapa interactivo' }}
         </span>
       </div>
-      <div ref="mapContainerEl" class="h-56 w-full bg-slate-100 dark:bg-slate-900" />
+      <div ref="mapContainerEl" class="relative isolate z-0 h-56 w-full bg-slate-100 dark:bg-slate-900" />
     </div>
 
     <div

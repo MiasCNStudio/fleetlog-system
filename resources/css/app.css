@@ -96,3 +96,16 @@
 .swal2-html-container.fleet-swal-html {
   @apply text-theme-sm text-gray-600 dark:text-gray-300;
 }
+
+/* Isolate Leaflet z-index panes inside each map container so they never bleed above modals or headers */
+.leaflet-container {
+  isolation: isolate;
+  z-index: 0 !important;
+}
+
+.fleetlog-live-unit {
+  width: auto !important;
+  height: auto !important;
+  background: transparent;
+  border: 0;
+}
