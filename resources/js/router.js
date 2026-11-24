@@ -6,6 +6,8 @@ import UsersView from './views/UsersView.vue';
 import VehiclesView from './views/VehiclesView.vue';
 import BitacoraView from './views/BitacoraView.vue';
 import IncidentsView from './views/IncidentsView.vue';
+import MaintenanceView from './views/MaintenanceView.vue';
+import FuelLogsView from './views/FuelLogsView.vue';
 import SystemLogsView from './views/SystemLogsView.vue';
 import TrackingView from './views/TrackingView.vue';
 
@@ -30,6 +32,8 @@ const routes = [
     component: TrackingView,
     meta: { requiresAuth: true, requiresFleetManager: true },
   },
+  { path: '/mantenimiento', name: 'maintenance', component: MaintenanceView, meta: { requiresAuth: true } },
+  { path: '/combustible', name: 'fuel', component: FuelLogsView, meta: { requiresAuth: true } },
 ];
 
 const router = createRouter({

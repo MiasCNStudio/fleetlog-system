@@ -59,9 +59,25 @@ class MoreMenuScreen extends StatelessWidget {
                 ListTile(
                   leading: const Icon(Icons.directions_car_outlined),
                   title: const Text('Vehículos'),
-                  subtitle: const Text('Estado, odómetro y mantenimiento'),
+                  subtitle: const Text('Placas SV, odómetro y mantenimiento'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => context.push('/vehiculos'),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.build_outlined),
+                  title: const Text('Mantenimiento preventivo'),
+                  subtitle: const Text('Alertas de 500 km, vencidos e historial'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push('/mantenimiento'),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.local_gas_station_outlined),
+                  title: const Text('Combustible'),
+                  subtitle: const Text('Registrar cargas de gas y rendimiento km/gal'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push('/combustible'),
                 ),
                 const Divider(height: 1),
                 ListTile(

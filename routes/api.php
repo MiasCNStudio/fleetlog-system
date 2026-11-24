@@ -4,12 +4,14 @@ use App\Http\Controllers\Api\AssignmentController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BitacoraController;
 use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\FuelLogController;
 use App\Http\Controllers\Api\IncidentController;
 use App\Http\Controllers\Api\PlaceController;
 use App\Http\Controllers\Api\SystemLogController;
 use App\Http\Controllers\Api\TripTrackingController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\VehicleController;
+use App\Http\Controllers\Api\VehicleMaintenanceController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/login', [AuthController::class, 'login']);
@@ -90,5 +92,16 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('tracking/sessions', [TripTrackingController::class, 'index']);
         Route::get('tracking/sessions/active', [TripTrackingController::class, 'active']);
         Route::get('tracking/sessions/{session}', [TripTrackingController::class, 'show']);
+
+        // Mantenimiento preventivo por kilometraje (programación y cierre: admin/jefe)
+        Route::post('maintenances', [VehicleMaintenanceController::class, 'store']);
+        Route::post('maintenances/{maintenance}/complete', [VehicleMaintenanceController::class, 'complete']);
     });
+    Route::get('maintenances', [VehicleMaintenanceController::class, 'index']);
+    Route::delete('maintenances/{maintenance}', [VehicleMaintenanceController::class, 'destroy'])->middleware('role:admin');
+
+    // Cargas de combustible (registro para todos; borrado solo admin)
+    Route::get('fuel-logs', [FuelLogController::class, 'index']);
+    Route::post('fuel-logs', [FuelLogController::class, 'store']);
+    Route::delete('fuel-logs/{fuelLog}', [FuelLogController::class, 'destroy'])->middleware('role:admin');
 });

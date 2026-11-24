@@ -18,6 +18,8 @@ import {
   INCIDENT_STATUS_META,
   LOG_ACTION_META,
   LOG_MODULE_META,
+  MAINTENANCE_ALERT_META,
+  MAINTENANCE_JOB_META,
   TRACKING_STATUS_META,
   USER_ROLE_META,
   USER_TYPE_META,
@@ -41,6 +43,8 @@ const maps = {
   logModule: LOG_MODULE_META,
   logAction: LOG_ACTION_META,
   trackingStatus: TRACKING_STATUS_META,
+  maintenanceStatus: MAINTENANCE_ALERT_META,
+  maintenanceJobStatus: MAINTENANCE_JOB_META,
 };
 
 const resolved = computed(() => {

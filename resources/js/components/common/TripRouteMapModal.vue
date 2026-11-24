@@ -195,6 +195,7 @@ const errorMsg = ref('');
 const session = ref(null);
 const points = ref([]);
 const summary = ref(null);
+const matchedRoute = ref([]);
 const usingGoogle = ref(false);
 const mapEl = ref(null);
 
@@ -290,6 +291,10 @@ const renderMap = async () => {
   destroyMaps();
 
   const latLngs = points.value.map((p) => [Number(p.latitude), Number(p.longitude)]);
+  const matchedLatLngs = (matchedRoute.value || [])
+    .filter((pair) => Array.isArray(pair) && pair.length >= 2)
+    .map((pair) => [Number(pair[0]), Number(pair[1])]);
+  const lineLatLngs = matchedLatLngs.length >= 2 ? matchedLatLngs : latLngs;
   const first = points.value[0];
   const last = points.value[points.value.length - 1];
   const stops = summary.value?.stops || [];
@@ -301,9 +306,11 @@ const renderMap = async () => {
       const g = await loadGoogleMapsScript(envGoogleKey);
       if (!mapEl.value) return;
       usingGoogle.value = true;
-      const gPath = points.value.map((p) => ({ lat: Number(p.latitude), lng: Number(p.longitude) }));
+      const gPath = lineLatLngs.map((pair) => ({ lat: pair[0], lng: pair[1] }));
+      const rawStart = { lat: Number(first.latitude), lng: Number(first.longitude) };
+      const rawEnd = { lat: Number(last.latitude), lng: Number(last.longitude) };
       googleMap = new g.maps.Map(mapEl.value, {
-        center: gPath[0],
+        center: rawStart,
         zoom: 14,
         mapTypeControl: true,
         streetViewControl: false,
@@ -314,17 +321,19 @@ const renderMap = async () => {
         geodesic: true,
         strokeColor: '#465fff',
         strokeOpacity: 0.9,
-        strokeWeight: 4,
+        strokeWeight: 4.5,
         map: googleMap,
       });
       googleOverlays.push(line);
 
       const bounds = new g.maps.LatLngBounds();
       gPath.forEach((pt) => bounds.extend(pt));
+      bounds.extend(rawStart);
+      bounds.extend(rawEnd);
 
       googleOverlays.push(
         new g.maps.Marker({
-          position: gPath[0],
+          position: rawStart,
           map: googleMap,
           label: 'I',
           title: `Inicio: ${formatDateTime(first.recorded_at)}`,
@@ -332,7 +341,7 @@ const renderMap = async () => {
       );
       googleOverlays.push(
         new g.maps.Marker({
-          position: gPath[gPath.length - 1],
+          position: rawEnd,
           map: googleMap,
           label: session.value?.status === 'activa' ? 'A' : 'F',
           title: `${session.value?.status === 'activa' ? 'Última posición' : 'Fin'}: ${formatDateTime(last.recorded_at)}`,
@@ -384,7 +393,7 @@ const renderMap = async () => {
     maxZoom: 19,
   }).addTo(leafletMap);
 
-  const polyline = L.polyline(latLngs, { color: '#465fff', weight: 4, opacity: 0.9 }).addTo(leafletMap);
+  const polyline = L.polyline(lineLatLngs, { color: '#465fff', weight: 4.5, opacity: 0.9 }).addTo(leafletMap);
 
   L.marker([first.latitude, first.longitude], { icon: makeDotIcon('#10b981', 'I') })
     .bindPopup(`<strong>Inicio</strong><br>${formatDateTime(first.recorded_at)}`)
@@ -424,6 +433,7 @@ const loadSession = async () => {
     session.value = data.session;
     points.value = data.points || [];
     summary.value = data.summary || null;
+    matchedRoute.value = data.matched_route || data.summary?.matched_route || [];
     await renderMap();
   } catch (err) {
     errorMsg.value = err.response?.data?.message || 'No se pudo cargar el recorrido de la misión.';
@@ -455,6 +465,7 @@ watch(
       session.value = null;
       points.value = [];
       summary.value = null;
+      matchedRoute.value = [];
       errorMsg.value = '';
     }
   },

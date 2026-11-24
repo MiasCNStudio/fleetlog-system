@@ -28,7 +28,12 @@
         </div>
 
         <div v-else class="grid grid-cols-1 gap-4 lg:grid-cols-12">
-          <div class="overflow-hidden rounded-xl border border-gray-200 dark:border-white/10 lg:col-span-7">
+          <div
+            :class="[
+              'overflow-hidden rounded-xl border border-gray-200 dark:border-white/10 lg:col-span-7',
+              routeModalOpen || filterModalOpen ? 'invisible pointer-events-none' : '',
+            ]"
+          >
             <div class="flex items-center justify-between border-b border-gray-100 bg-gray-50/80 px-3.5 py-2 text-[11px] text-gray-500 dark:border-white/[0.06] dark:bg-white/[0.02] dark:text-gray-400">
               <span>Última ubicación reportada de unidades en curso</span>
               <span class="font-semibold uppercase text-brand-600 dark:text-brand-400">

@@ -7,6 +7,8 @@ import '../features/auth/login_screen.dart';
 import '../features/bitacora/bitacora_screen.dart';
 import '../features/dashboard/dashboard_screen.dart';
 import '../features/incidents/incidents_screen.dart';
+import '../features/management/fuel_logs_screen.dart';
+import '../features/management/maintenance_screen.dart';
 import '../features/management/more_menu_screen.dart';
 import '../features/management/system_logs_screen.dart';
 import '../features/management/users_screen.dart';
@@ -83,6 +85,14 @@ GoRouter createAppRouter(AuthController auth) {
       GoRoute(
         path: '/vehiculos',
         builder: (_, _) => const VehiclesScreen(),
+      ),
+      GoRoute(
+        path: '/mantenimiento',
+        builder: (_, _) => const MaintenanceScreen(),
+      ),
+      GoRoute(
+        path: '/combustible',
+        builder: (_, _) => const FuelLogsScreen(),
       ),
       GoRoute(
         path: '/bitacora-sistema',

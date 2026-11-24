@@ -41,7 +41,9 @@ void fleetlogBackgroundOnStart(ServiceInstance service) async {
   );
 
   var isDisposed = false;
+  var isUploading = false;
   var sentCount = 0;
+  DateTime? lastCaptureAt;
 
   Future<void> updateNotification(String title, String content) async {
     if (service is AndroidServiceInstance) {
@@ -51,7 +53,40 @@ void fleetlogBackgroundOnStart(ServiceInstance service) async {
     }
   }
 
-  Future<void> tick({bool forceSyncOnly = false}) async {
+  Future<void> enqueuePosition({
+    required Position pos,
+    required int sessionId,
+    required String deviceUuid,
+  }) async {
+    int? batteryLevel;
+    try {
+      batteryLevel = await battery.batteryLevel;
+    } catch (_) {}
+
+    final speedKmh = pos.speed >= 0
+        ? double.parse((pos.speed * 3.6).toStringAsFixed(2))
+        : 0.0;
+
+    await queue.enqueue(
+      sessionId: sessionId,
+      deviceUuid: deviceUuid,
+      pointPayload: {
+        'latitude': double.parse(pos.latitude.toStringAsFixed(7)),
+        'longitude': double.parse(pos.longitude.toStringAsFixed(7)),
+        'accuracy_m': double.parse(pos.accuracy.toStringAsFixed(2)),
+        'speed_kmh': speedKmh,
+        'heading': double.parse(pos.heading.toStringAsFixed(2)),
+        'altitude_m': double.parse(pos.altitude.toStringAsFixed(2)),
+        'battery_level': batteryLevel,
+        'is_moving': speedKmh >= 2.0,
+        'source': 'background',
+        'recorded_at': DateTime.now().toUtc().toIso8601String(),
+      },
+    );
+    lastCaptureAt = DateTime.now();
+  }
+
+  Future<void> tick({bool forceSyncOnly = false, Position? streamPosition}) async {
     if (isDisposed) return;
 
     final prefs = await SharedPreferences.getInstance();
@@ -70,38 +105,26 @@ void fleetlogBackgroundOnStart(ServiceInstance service) async {
       return;
     }
 
-    if (!forceSyncOnly) {
+    if (streamPosition != null) {
+      await enqueuePosition(
+        pos: streamPosition,
+        sessionId: sessionId,
+        deviceUuid: deviceUuid,
+      );
+    } else if (!forceSyncOnly) {
       try {
         final perm = await Geolocator.checkPermission();
         if (perm == LocationPermission.always || perm == LocationPermission.whileInUse) {
           final pos = await Geolocator.getCurrentPosition(
             locationSettings: const LocationSettings(
-              accuracy: LocationAccuracy.high,
+              accuracy: LocationAccuracy.bestForNavigation,
               timeLimit: Duration(seconds: 12),
             ),
           );
-
-          int? batteryLevel;
-          try {
-            batteryLevel = await battery.batteryLevel;
-          } catch (_) {}
-
-          final speedKmh = pos.speed >= 0 ? double.parse((pos.speed * 3.6).toStringAsFixed(2)) : 0.0;
-          await queue.enqueue(
+          await enqueuePosition(
+            pos: pos,
             sessionId: sessionId,
             deviceUuid: deviceUuid,
-            pointPayload: {
-              'latitude': double.parse(pos.latitude.toStringAsFixed(7)),
-              'longitude': double.parse(pos.longitude.toStringAsFixed(7)),
-              'accuracy_m': double.parse(pos.accuracy.toStringAsFixed(2)),
-              'speed_kmh': speedKmh,
-              'heading': double.parse(pos.heading.toStringAsFixed(2)),
-              'altitude_m': double.parse(pos.altitude.toStringAsFixed(2)),
-              'battery_level': batteryLevel,
-              'is_moving': speedKmh >= 2.0,
-              'source': 'background',
-              'recorded_at': DateTime.now().toUtc().toIso8601String(),
-            },
           );
         }
       } catch (_) {
@@ -109,8 +132,10 @@ void fleetlogBackgroundOnStart(ServiceInstance service) async {
       }
     }
 
+    if (isUploading) return;
     final batch = await queue.peekBatch(sessionId: sessionId, limit: 100);
     if (batch.isNotEmpty) {
+      isUploading = true;
       try {
         final payloadPoints = batch.map((e) {
           final pt = Map<String, dynamic>.from(e.payload);
@@ -156,7 +181,7 @@ void fleetlogBackgroundOnStart(ServiceInstance service) async {
 
         await updateNotification(
           'Misión activa · $plate',
-          'Rastreo activo · $serverPoints pts · $distance km',
+          'Rastreo continuo · $serverPoints pts · $distance km',
         );
       } on DioException catch (e) {
         final code = e.response?.statusCode;
@@ -176,14 +201,12 @@ void fleetlogBackgroundOnStart(ServiceInstance service) async {
           'Misión activa · $plate',
           'Sin conexión · $queued ubicaciones guardadas offline',
         );
-      } catch (_) {}
+      } catch (_) {
+      } finally {
+        isUploading = false;
+      }
     }
   }
-
-  service.on('stopService').listen((_) {
-    isDisposed = true;
-    service.stopSelf();
-  });
 
   service.on('syncNow').listen((_) async {
     await tick(forceSyncOnly: true);
@@ -195,14 +218,35 @@ void fleetlogBackgroundOnStart(ServiceInstance service) async {
     }
   });
 
+  StreamSubscription<Position>? posSub;
+  try {
+    final perm = await Geolocator.checkPermission();
+    if (perm == LocationPermission.always || perm == LocationPermission.whileInUse) {
+      posSub = Geolocator.getPositionStream(
+        locationSettings: AndroidSettings(
+          accuracy: LocationAccuracy.bestForNavigation,
+          distanceFilter: 25,
+          intervalDuration: const Duration(seconds: 5),
+        ),
+      ).listen((pos) async {
+        await tick(streamPosition: pos);
+      }, onError: (_) {});
+    }
+  } catch (_) {}
+
   await tick();
-  final timer = Timer.periodic(const Duration(seconds: 20), (_) async {
-    await tick();
+  final timer = Timer.periodic(const Duration(seconds: 25), (_) async {
+    final stale = lastCaptureAt == null ||
+        DateTime.now().difference(lastCaptureAt!).inSeconds >= 23;
+    await tick(forceSyncOnly: !stale);
   });
 
   service.on('stopService').listen((_) {
+    isDisposed = true;
     timer.cancel();
     connSub.cancel();
+    posSub?.cancel();
+    service.stopSelf();
   });
 }
 

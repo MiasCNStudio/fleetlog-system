@@ -278,23 +278,40 @@ class TripTrackingDetail {
     required this.session,
     required this.points,
     required this.summary,
+    this.matchedRoute = const [],
   });
 
   final TripTrackingSession session;
   final List<TripLocationPoint> points;
   final TripRouteSummary summary;
+  final List<({double lat, double lng})> matchedRoute;
 
   factory TripTrackingDetail.fromJson(Map<String, dynamic> json) {
     final pointsRaw = json['points'] as List<dynamic>? ?? const [];
+    final summaryMap = (json['summary'] as Map<String, dynamic>?) ?? const {};
+    final matchedRaw =
+        (json['matched_route'] ?? summaryMap['matched_route']) as List<dynamic>? ??
+            const [];
+
+    final matched = <({double lat, double lng})>[];
+    for (final item in matchedRaw) {
+      if (item is List && item.length >= 2) {
+        final lat = (item[0] as num?)?.toDouble();
+        final lng = (item[1] as num?)?.toDouble();
+        if (lat != null && lng != null) {
+          matched.add((lat: lat, lng: lng));
+        }
+      }
+    }
+
     return TripTrackingDetail(
       session: TripTrackingSession.fromJson(json['session'] as Map<String, dynamic>),
       points: pointsRaw
           .whereType<Map<String, dynamic>>()
           .map(TripLocationPoint.fromJson)
           .toList(),
-      summary: TripRouteSummary.fromJson(
-        (json['summary'] as Map<String, dynamic>?) ?? const {},
-      ),
+      summary: TripRouteSummary.fromJson(summaryMap),
+      matchedRoute: matched,
     );
   }
 }

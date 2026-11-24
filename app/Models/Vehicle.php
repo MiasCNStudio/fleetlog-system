@@ -24,19 +24,40 @@ class Vehicle extends Model
         self::STATUS_MAINTENANCE,
     ];
 
+    public const SV_PLATE_TYPES = [
+        'P',
+        'CD',
+        'MI',
+        'N',
+        'CC',
+        'A',
+        'C',
+        'M',
+        'AB',
+        'MB',
+    ];
+
     protected $fillable = [
         'license_plate',
+        'plate_type',
+        'plate_number',
         'color',
         'brand',
         'model',
         'status',
         'current_odometer',
         'maintenance_interval_km',
+        'next_maintenance_odometer',
+        'maintenance_alert_before_km',
+        'last_maintenance_odometer',
+        'last_maintenance_at',
         'photo_path',
     ];
 
     protected $appends = [
         'photo_url',
+        'maintenance_status',
+        'km_to_maintenance',
     ];
 
     protected function casts(): array
@@ -44,6 +65,10 @@ class Vehicle extends Model
         return [
             'current_odometer' => 'integer',
             'maintenance_interval_km' => 'integer',
+            'next_maintenance_odometer' => 'integer',
+            'maintenance_alert_before_km' => 'integer',
+            'last_maintenance_odometer' => 'integer',
+            'last_maintenance_at' => 'datetime',
         ];
     }
 
@@ -52,6 +77,35 @@ class Vehicle extends Model
         return $this->photo_path
             ? Storage::disk('public')->url($this->photo_path)
             : null;
+    }
+
+    public function getKmToMaintenanceAttribute(): ?int
+    {
+        if ($this->next_maintenance_odometer === null) {
+            return null;
+        }
+
+        return (int) $this->next_maintenance_odometer - (int) $this->current_odometer;
+    }
+
+    public function getMaintenanceStatusAttribute(): string
+    {
+        $remaining = $this->km_to_maintenance;
+        if ($remaining === null) {
+            return 'sin_programar';
+        }
+
+        $threshold = max(1, (int) ($this->maintenance_alert_before_km ?: 500));
+
+        if ($remaining <= 0) {
+            return 'vencido';
+        }
+
+        if ($remaining <= $threshold) {
+            return 'pronto';
+        }
+
+        return 'al_dia';
     }
 
     public function bitacoras(): HasMany
@@ -72,6 +126,16 @@ class Vehicle extends Model
     public function assignments(): HasMany
     {
         return $this->hasMany(Assignment::class);
+    }
+
+    public function maintenances(): HasMany
+    {
+        return $this->hasMany(VehicleMaintenance::class)->orderByDesc('created_at')->orderByDesc('id');
+    }
+
+    public function fuelLogs(): HasMany
+    {
+        return $this->hasMany(FuelLog::class)->orderByDesc('filled_at')->orderByDesc('id');
     }
 
     /**

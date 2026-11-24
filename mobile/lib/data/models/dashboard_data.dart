@@ -1,5 +1,6 @@
 import 'assignment.dart';
 import 'incident_entry.dart';
+import 'vehicle.dart';
 
 class ActiveTripSummary {
   const ActiveTripSummary({
@@ -92,6 +93,7 @@ class DashboardData {
     this.activeTrips = const [],
     this.recentIncidents = const [],
     this.upcomingAssignments = const [],
+    this.maintenanceAlerts = const [],
     this.myAssignments = const [],
     this.myActiveTrip,
   });
@@ -100,6 +102,7 @@ class DashboardData {
   final List<ActiveTripSummary> activeTrips;
   final List<IncidentEntry> recentIncidents;
   final List<Assignment> upcomingAssignments;
+  final List<Vehicle> maintenanceAlerts;
   final List<Assignment> myAssignments;
   final ActiveTripSummary? myActiveTrip;
 
@@ -107,6 +110,7 @@ class DashboardData {
     final activeRaw = json['active_trips'] as List<dynamic>? ?? const [];
     final incidentsRaw = json['recent_incidents'] as List<dynamic>? ?? const [];
     final upcomingRaw = json['upcoming_assignments'] as List<dynamic>? ?? const [];
+    final alertsRaw = json['maintenance_alerts'] as List<dynamic>? ?? const [];
     final mineRaw = json['my_assignments'] as List<dynamic>? ?? const [];
 
     return DashboardData(
@@ -124,6 +128,10 @@ class DashboardData {
       upcomingAssignments: upcomingRaw
           .whereType<Map<String, dynamic>>()
           .map(Assignment.fromJson)
+          .toList(),
+      maintenanceAlerts: alertsRaw
+          .whereType<Map<String, dynamic>>()
+          .map(Vehicle.fromJson)
           .toList(),
       myAssignments: mineRaw
           .whereType<Map<String, dynamic>>()

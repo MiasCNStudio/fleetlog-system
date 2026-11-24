@@ -1,10 +1,12 @@
 import 'package:fleetlog_mobile/data/models/app_user.dart';
 import 'package:fleetlog_mobile/data/models/dashboard_data.dart';
 import 'package:fleetlog_mobile/data/models/tracking_models.dart';
+import 'package:fleetlog_mobile/data/models/vehicle.dart';
 import 'package:fleetlog_mobile/data/repositories/auth_repository.dart';
 import 'package:fleetlog_mobile/data/repositories/tracking_repository.dart';
 import 'package:fleetlog_mobile/data/services/api_client.dart';
 import 'package:fleetlog_mobile/data/services/device_identity_service.dart';
+import 'package:fleetlog_mobile/ui/core/widgets/status_badge.dart';
 import 'package:fleetlog_mobile/ui/features/auth/auth_controller.dart';
 import 'package:fleetlog_mobile/ui/features/auth/login_screen.dart';
 import 'package:flutter/material.dart';
@@ -156,5 +158,47 @@ void main() {
 
     expect(find.text('Ingresa tu correo'), findsOneWidget);
     expect(find.text('Ingresa tu contraseña'), findsOneWidget);
+  });
+
+  testWidgets('PlateChip splits El Salvador plates cleanly (CD1234 and P745ABC)', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: Column(
+            children: [
+              PlateChip('CD1234', plateType: 'CD', plateNumber: '1234'),
+              PlateChip('P745ABC', plateType: 'P', plateNumber: '745ABC'),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('CD'), findsOneWidget);
+    expect(find.text('1'), findsOneWidget);
+    expect(find.text('234'), findsOneWidget);
+    expect(find.text('P'), findsOneWidget);
+    expect(find.text('745'), findsOneWidget);
+    expect(find.text('ABC'), findsOneWidget);
+  });
+
+  test('Vehicle parses maintenance alerts accurately', () {
+    final v = Vehicle.fromJson({
+      'id': 1,
+      'license_plate': 'MI456789',
+      'plate_type': 'MI',
+      'plate_number': '456789',
+      'brand': 'Nissan',
+      'model': 'Urvan',
+      'color': 'Blanco',
+      'status': 'disponible',
+      'current_odometer': 9650,
+      'next_maintenance_odometer': 10000,
+      'maintenance_status': 'pronto',
+      'km_to_maintenance': 350,
+    });
+    expect(v.plateType, 'MI');
+    expect(v.hasMaintenanceAlert, isTrue);
+    expect(v.kmToMaintenance, 350);
   });
 }

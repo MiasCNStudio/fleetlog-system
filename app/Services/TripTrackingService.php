@@ -12,6 +12,7 @@ use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
 use Laravel\Sanctum\PersonalAccessToken;
 
@@ -634,7 +635,102 @@ class TripTrackingService
             'google_maps_last_url' => $lastPoint
                 ? sprintf('https://www.google.com/maps/search/?api=1&query=%s,%s', $lastPoint->latitude, $lastPoint->longitude)
                 : null,
+            'matched_route' => $this->matchRouteToRoads($points),
         ];
+    }
+
+    /**
+     * Ajusta los puntos GPS capturados a la geometría real de la calle/carretera (Map Matching OSRM).
+     *
+     * @param  Collection<int, TripLocationPoint>  $points
+     */
+    public function matchRouteToRoads(Collection $points): ?array
+    {
+        if (app()->runningUnitTests() || $points->count() < 2) {
+            return null;
+        }
+
+        // Filtrar puntos consecutivos casi idénticos (< 10 m) para evitar ruido en el matcher
+        $sampled = [];
+        $last = null;
+        foreach ($points as $pt) {
+            if ($last === null || $this->haversineMeters($last->latitude, $last->longitude, $pt->latitude, $pt->longitude) >= 10.0) {
+                $sampled[] = $pt;
+                $last = $pt;
+            }
+        }
+        if (count($sampled) < 2) {
+            return null;
+        }
+
+        // Limitar a máximo 80 coordenadas para cumplir URL length estándar de OSRM
+        if (count($sampled) > 80) {
+            $reduced = [$sampled[0]];
+            $step = (count($sampled) - 2) / 78;
+            for ($i = 1; $i <= 78; $i++) {
+                $reduced[] = $sampled[(int) round($i * $step)];
+            }
+            $reduced[] = $sampled[count($sampled) - 1];
+            $sampled = $reduced;
+        }
+
+        $coordsParam = implode(';', array_map(
+            fn (TripLocationPoint $p) => sprintf('%F,%F', $p->longitude, $p->latitude),
+            $sampled,
+        ));
+
+        try {
+            $matchRes = Http::timeout(4)->get(
+                "https://router.project-osrm.org/match/v1/driving/{$coordsParam}",
+                [
+                    'overview' => 'full',
+                    'geometries' => 'geojson',
+                    'steps' => 'false',
+                    'gaps' => 'ignore',
+                ],
+            );
+
+            if ($matchRes->ok() && $matchRes->json('code') === 'Ok') {
+                $coords = [];
+                foreach ($matchRes->json('matchings', []) as $matching) {
+                    foreach ($matching['geometry']['coordinates'] ?? [] as $pair) {
+                        if (is_array($pair) && count($pair) >= 2) {
+                            $coords[] = [(float) $pair[1], (float) $pair[0]];
+                        }
+                    }
+                }
+                if (count($coords) >= 2) {
+                    return $coords;
+                }
+            }
+
+            // Fallback a ruta por carretera si los pings están muy separados para match estricto
+            $routeRes = Http::timeout(4)->get(
+                "https://router.project-osrm.org/route/v1/driving/{$coordsParam}",
+                [
+                    'overview' => 'full',
+                    'geometries' => 'geojson',
+                    'steps' => 'false',
+                ],
+            );
+
+            if ($routeRes->ok() && $routeRes->json('code') === 'Ok') {
+                $rawCoords = $routeRes->json('routes.0.geometry.coordinates', []);
+                $coords = [];
+                foreach ($rawCoords as $pair) {
+                    if (is_array($pair) && count($pair) >= 2) {
+                        $coords[] = [(float) $pair[1], (float) $pair[0]];
+                    }
+                }
+                if (count($coords) >= 2) {
+                    return $coords;
+                }
+            }
+        } catch (\Throwable) {
+            /* si falla la red hacia OSRM, se mantiene fallback al trazo GPS crudo */
+        }
+
+        return null;
     }
 
     /**

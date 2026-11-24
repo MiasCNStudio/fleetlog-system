@@ -229,6 +229,11 @@ class _TripRouteSummarySheetState extends State<_TripRouteSummarySheet> {
     }
 
     final routeLatLngs = pts.map((p) => LatLng(p.latitude, p.longitude)).toList();
+    final matchedLatLngs = detail.matchedRoute
+        .map((m) => LatLng(m.lat, m.lng))
+        .toList();
+    final polylineLatLngs =
+        matchedLatLngs.length >= 2 ? matchedLatLngs : routeLatLngs;
     final first = routeLatLngs.first;
     final last = routeLatLngs.last;
     final stops = detail.summary.stops;
@@ -289,13 +294,13 @@ class _TripRouteSummarySheetState extends State<_TripRouteSummarySheet> {
               urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
               userAgentPackageName: 'org.miascn.fleetlog.fleetlog_mobile',
             ),
-            if (routeLatLngs.length > 1)
+            if (polylineLatLngs.length > 1)
               PolylineLayer(
                 polylines: [
                   Polyline(
-                    points: routeLatLngs,
+                    points: polylineLatLngs,
                     color: const Color(0xFF465FFF),
-                    strokeWidth: 4.2,
+                    strokeWidth: 4.4,
                   ),
                 ],
               ),

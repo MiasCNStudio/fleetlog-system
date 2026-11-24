@@ -6,6 +6,7 @@ import '../models/assignment.dart';
 import '../models/bitacora_entry.dart';
 import '../models/dashboard_data.dart';
 import '../models/incident_entry.dart';
+import '../models/maintenance_fuel_models.dart';
 import '../models/place_suggestion.dart';
 import '../models/system_log_entry.dart';
 import '../models/vehicle.dart';
@@ -303,20 +304,30 @@ class FleetRepository {
   Future<void> saveVehicle({
     int? id,
     required String licensePlate,
+    String? plateType,
+    String? plateNumber,
     required String brand,
     required String model,
     required String color,
     required String status,
     required int currentOdometer,
+    int? nextMaintenanceOdometer,
+    int? maintenanceIntervalKm,
+    int? maintenanceAlertBeforeKm,
   }) async {
     try {
       final data = {
         'license_plate': licensePlate.trim().toUpperCase(),
+        'plate_type': ?plateType,
+        'plate_number': ?plateNumber,
         'brand': brand.trim(),
         'model': model.trim(),
         'color': color.trim(),
         'status': status,
         'current_odometer': currentOdometer,
+        'next_maintenance_odometer': ?nextMaintenanceOdometer,
+        'maintenance_interval_km': ?maintenanceIntervalKm,
+        'maintenance_alert_before_km': ?maintenanceAlertBeforeKm,
       };
       if (id == null) {
         await _api.dio.post('/vehicles', data: data);
@@ -465,6 +476,93 @@ class FleetRepository {
       } else {
         await _api.dio.put('/users/$id', data: payload);
       }
+    } catch (e) {
+      throw ApiClient.parseError(e);
+    }
+  }
+
+  Future<({List<VehicleMaintenanceEntry> records, List<Vehicle> alerts})> fetchMaintenances({
+    int page = 1,
+    int? vehicleId,
+    String? status,
+  }) async {
+    try {
+      final res = await _api.dio.get<Map<String, dynamic>>(
+        '/maintenances',
+        queryParameters: {
+          'page': page,
+          'vehicle_id': ?vehicleId,
+          if (status != null && status.isNotEmpty) 'status': status,
+        },
+      );
+      final body = res.data ?? const {};
+      final recMap = body['records'] as Map<String, dynamic>? ?? const {};
+      final rawRecs = recMap['data'] as List<dynamic>? ?? const [];
+      final rawAlerts = body['alerts'] as List<dynamic>? ?? const [];
+      return (
+        records: rawRecs
+            .whereType<Map<String, dynamic>>()
+            .map(VehicleMaintenanceEntry.fromJson)
+            .toList(),
+        alerts: rawAlerts
+            .whereType<Map<String, dynamic>>()
+            .map(Vehicle.fromJson)
+            .toList(),
+      );
+    } catch (e) {
+      throw ApiClient.parseError(e);
+    }
+  }
+
+  Future<void> createMaintenance(Map<String, dynamic> payload) async {
+    try {
+      await _api.dio.post('/maintenances', data: payload);
+    } catch (e) {
+      throw ApiClient.parseError(e);
+    }
+  }
+
+  Future<void> completeMaintenance(int id, Map<String, dynamic> payload) async {
+    try {
+      await _api.dio.post('/maintenances/$id/complete', data: payload);
+    } catch (e) {
+      throw ApiClient.parseError(e);
+    }
+  }
+
+  Future<PaginatedResult<FuelLogEntry>> fetchFuelLogs({
+    int page = 1,
+    int? vehicleId,
+    String? fuelType,
+  }) async {
+    try {
+      final res = await _api.dio.get<Map<String, dynamic>>(
+        '/fuel-logs',
+        queryParameters: {
+          'page': page,
+          'vehicle_id': ?vehicleId,
+          if (fuelType != null && fuelType.isNotEmpty) 'fuel_type': fuelType,
+        },
+      );
+      final body = res.data ?? const {};
+      final raw = body['data'] as List<dynamic>? ?? const [];
+      return PaginatedResult(
+        items: raw
+            .whereType<Map<String, dynamic>>()
+            .map(FuelLogEntry.fromJson)
+            .toList(),
+        currentPage: (body['current_page'] as num?)?.toInt() ?? 1,
+        lastPage: (body['last_page'] as num?)?.toInt() ?? 1,
+        total: (body['total'] as num?)?.toInt() ?? 0,
+      );
+    } catch (e) {
+      throw ApiClient.parseError(e);
+    }
+  }
+
+  Future<void> createFuelLog(Map<String, dynamic> payload) async {
+    try {
+      await _api.dio.post('/fuel-logs', data: payload);
     } catch (e) {
       throw ApiClient.parseError(e);
     }

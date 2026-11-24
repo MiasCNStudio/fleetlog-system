@@ -473,15 +473,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: OutlinedButton.icon(
                 onPressed: () => context.go('/bitacora'),
                 icon: const Icon(Icons.person_pin_circle_outlined, size: 18),
-                label: const Text('Salida personal'),
+                label: const Text('Personal'),
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () => context.push('/combustible'),
+                icon: const Icon(Icons.local_gas_station_outlined, size: 18),
+                label: const Text('Echar gas'),
+              ),
+            ),
+            const SizedBox(width: 8),
             Expanded(
               child: OutlinedButton.icon(
                 onPressed: () => context.go('/incidencias'),
                 icon: const Icon(Icons.report_problem_outlined, size: 18),
-                label: const Text('Incidencia'),
+                label: const Text('Falla'),
               ),
             ),
           ],
@@ -637,6 +645,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        if (data.maintenanceAlerts.isNotEmpty) ...[
+          for (final v in data.maintenanceAlerts)
+            Card(
+              margin: const EdgeInsets.only(bottom: 10),
+              color: v.maintenanceStatus == 'vencido'
+                  ? const Color(0xFFE11D48).withValues(alpha: 0.14)
+                  : const Color(0xFFF59E0B).withValues(alpha: 0.14),
+              child: ListTile(
+                onTap: () => context.push('/mantenimiento'),
+                leading: PlateChip(v.licensePlate, plateType: v.plateType, plateNumber: v.plateNumber),
+                title: Text(
+                  v.maintenanceStatus == 'vencido'
+                      ? '¡MANTENIMIENTO PASADO!'
+                      : 'Mantenimiento próximo',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13.5,
+                    color: v.maintenanceStatus == 'vencido'
+                        ? const Color(0xFFE11D48)
+                        : const Color(0xFFB45309),
+                  ),
+                ),
+                subtitle: Text(
+                  (v.kmToMaintenance ?? 0) <= 0
+                      ? 'Excedido por ${(v.kmToMaintenance ?? 0).abs()} km'
+                      : 'Faltan ${v.kmToMaintenance} km',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+              ),
+            ),
+          const SizedBox(height: 6),
+        ],
         GridView.count(
           crossAxisCount: 2,
           shrinkWrap: true,

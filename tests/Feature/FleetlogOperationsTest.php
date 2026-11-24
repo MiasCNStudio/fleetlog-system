@@ -403,4 +403,84 @@ class FleetlogOperationsTest extends TestCase
         $this->assertContains('sos_alert', $actions);
         $this->assertContains('session_finished', $actions);
     }
+
+    public function test_sv_plates_preventive_maintenance_alerts_and_fuel_logs(): void
+    {
+        $dispatcher = User::factory()->create(['role' => User::ROLE_DISPATCHER]);
+        $driver = User::factory()->create(['role' => User::ROLE_DRIVER, 'driver_code' => 'M-40']);
+
+        // Crear vehículo con placa salvadoreña CD 1234 y próximo mantenimiento a 5000 km
+        $vehResp = $this->actingAs($dispatcher)->postJson('/api/vehicles', [
+            'plate_type' => 'CD',
+            'plate_number' => '1234',
+            'brand' => 'Toyota',
+            'model' => 'Prado',
+            'color' => 'Azul',
+            'current_odometer' => 4400,
+            'maintenance_interval_km' => 5000,
+            'next_maintenance_odometer' => 5000,
+            'maintenance_alert_before_km' => 500,
+        ])->assertCreated();
+
+        $vehResp->assertJsonPath('license_plate', 'CD1234');
+        $vehResp->assertJsonPath('plate_type', 'CD');
+        $vehResp->assertJsonPath('plate_number', '1234');
+        $vehResp->assertJsonPath('maintenance_status', 'al_dia');
+
+        $vehicleId = $vehResp->json('id');
+
+        // Primera carga de combustible lleva el odómetro a 4650 km (faltan 350 <= 500 -> pronto)
+        $fuel1 = $this->actingAs($driver)->postJson('/api/fuel-logs', [
+            'vehicle_id' => $vehicleId,
+            'odometer_km' => 4650,
+            'gallons' => 10.0,
+            'cost_usd' => 41.50,
+            'fuel_type' => 'especial',
+            'station' => 'Puma Escalón',
+        ])->assertCreated();
+
+        $fuel1->assertJsonPath('vehicle.maintenance_status', 'pronto');
+        $fuel1->assertJsonPath('vehicle.km_to_maintenance', 350);
+
+        // Segunda carga supera el límite (5080 >= 5000 -> vencido) y calcula rendimiento km/galón
+        $fuel2 = $this->actingAs($driver)->postJson('/api/fuel-logs', [
+            'vehicle_id' => $vehicleId,
+            'odometer_km' => 5080,
+            'gallons' => 10.0,
+            'cost_usd' => 42.00,
+            'fuel_type' => 'especial',
+        ])->assertCreated();
+
+        $fuel2->assertJsonPath('km_since_last', 430);
+        $this->assertEquals(43.0, $fuel2->json('km_per_gallon'));
+        $fuel2->assertJsonPath('vehicle.maintenance_status', 'vencido');
+
+        // Dashboard refleja la alerta roja de mantenimiento vencido
+        $this->actingAs($dispatcher)
+            ->getJson('/api/dashboard')
+            ->assertOk()
+            ->assertJsonPath('summary.mantenimiento_vencido', 1)
+            ->assertJsonPath('maintenance_alerts.0.license_plate', 'CD1234');
+
+        // Programar y completar mantenimiento avanza el próximo límite
+        $maint = $this->actingAs($dispatcher)->postJson('/api/maintenances', [
+            'vehicle_id' => $vehicleId,
+            'title' => 'Servicio mayor 5000 km',
+            'status' => 'programado',
+            'scheduled_odometer_km' => 5000,
+        ])->assertCreated();
+
+        $this->actingAs($dispatcher)->postJson("/api/maintenances/{$maint->json('id')}/complete", [
+            'completed_odometer_km' => 5080,
+            'next_interval_km' => 5000,
+            'workshop' => 'Taller Central',
+            'cost_usd' => 120.00,
+        ])->assertOk()->assertJsonPath('status', 'completado');
+
+        $this->actingAs($dispatcher)
+            ->getJson("/api/vehicles/{$vehicleId}")
+            ->assertOk()
+            ->assertJsonPath('next_maintenance_odometer', 10080)
+            ->assertJsonPath('maintenance_status', 'al_dia');
+    }
 }

@@ -219,6 +219,38 @@
         </button>
       </div>
 
+      <div
+        v-if="maintenanceAlerts.length > 0"
+        class="mb-5 grid grid-cols-1 gap-3 md:grid-cols-2"
+      >
+        <div
+          v-for="v in maintenanceAlerts"
+          :key="`mal-${v.id}`"
+          :class="[
+            'flex items-center justify-between gap-3 rounded-2xl border p-4',
+            v.maintenance_status === 'vencido'
+              ? 'border-rose-400 bg-rose-50 text-rose-950 dark:border-rose-500/50 dark:bg-rose-500/15 dark:text-rose-100'
+              : 'border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-100',
+          ]"
+        >
+          <div class="min-w-0">
+            <p class="text-theme-xs font-extrabold uppercase tracking-wide">
+              {{ v.maintenance_status === 'vencido' ? '¡Mantenimiento pasado!' : 'Mantenimiento próximo' }} · {{ v.license_plate }}
+            </p>
+            <p class="mt-0.5 text-theme-xs">
+              {{
+                v.km_to_maintenance <= 0
+                  ? `Superó el límite por ${Math.abs(v.km_to_maintenance).toLocaleString()} km`
+                  : `Faltan ${Number(v.km_to_maintenance).toLocaleString()} km`
+              }}
+            </p>
+          </div>
+          <router-link to="/mantenimiento" class="fleet-btn-secondary h-8 shrink-0 px-3 py-1 text-theme-xs">
+            Ver
+          </router-link>
+        </div>
+      </div>
+
       <section
         aria-label="Indicadores clave de la flota"
         class="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-5"
@@ -612,6 +644,7 @@ const summary = ref({});
 const seriesRaw = ref({ categories: [], salidas: [], regresos: [] });
 const activeTrips = ref([]);
 const recentIncidents = ref([]);
+const maintenanceAlerts = ref([]);
 const myAssignments = ref([]);
 const myActiveTrip = ref(null);
 const daysFilter = ref(7);
@@ -874,6 +907,7 @@ const loadData = async () => {
     };
     activeTrips.value = data.active_trips || [];
     recentIncidents.value = data.recent_incidents || [];
+    maintenanceAlerts.value = data.maintenance_alerts || [];
     myAssignments.value = data.my_assignments || [];
     myActiveTrip.value = data.my_active_trip || null;
 

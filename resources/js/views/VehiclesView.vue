@@ -136,22 +136,48 @@
                   </div>
                 </td>
                 <td class="fleet-td whitespace-nowrap">
-                  <span class="rounded-md bg-gray-100 px-2.5 py-1 font-mono text-theme-xs font-semibold text-gray-900 dark:bg-gray-800 dark:text-white">
-                    {{ v.license_plate }}
-                  </span>
+                  <SalvadorPlate
+                    :license-plate="v.license_plate"
+                    :plate-type="v.plate_type"
+                    :plate-number="v.plate_number"
+                  />
                 </td>
                 <td class="fleet-td">
                   <p class="font-medium text-gray-900 dark:text-white">{{ v.brand }} {{ v.model }}</p>
                   <p class="text-theme-xs text-gray-500 dark:text-gray-400">{{ v.color }}</p>
                 </td>
                 <td class="fleet-td whitespace-nowrap">
-                  <StatusBadge kind="vehicleStatus" :value="v.status" />
+                  <div class="flex flex-col items-start gap-1">
+                    <StatusBadge kind="vehicleStatus" :value="v.status" />
+                    <StatusBadge
+                      v-if="v.maintenance_status && v.maintenance_status !== 'sin_programar'"
+                      kind="maintenanceStatus"
+                      :value="v.maintenance_status"
+                    />
+                  </div>
                 </td>
                 <td class="fleet-td whitespace-nowrap tabular-nums">
                   <p class="font-medium text-gray-900 dark:text-white">
                     {{ (v.current_odometer ?? 0).toLocaleString() }} km
                   </p>
-                  <p v-if="v.maintenance_interval_km" class="text-[11px] text-gray-500 dark:text-gray-400">
+                  <p
+                    v-if="v.next_maintenance_odometer !== null && v.next_maintenance_odometer !== undefined"
+                    :class="[
+                      'text-[11px] font-medium',
+                      v.maintenance_status === 'vencido'
+                        ? 'text-rose-600 dark:text-rose-400'
+                        : v.maintenance_status === 'pronto'
+                          ? 'text-amber-600 dark:text-amber-400'
+                          : 'text-gray-500 dark:text-gray-400',
+                    ]"
+                  >
+                    {{
+                      v.km_to_maintenance <= 0
+                        ? `Pasado ${Math.abs(v.km_to_maintenance).toLocaleString()} km (meta ${Number(v.next_maintenance_odometer).toLocaleString()} km)`
+                        : `Próx. mant. en ${Number(v.km_to_maintenance).toLocaleString()} km`
+                    }}
+                  </p>
+                  <p v-else-if="v.maintenance_interval_km" class="text-[11px] text-gray-500 dark:text-gray-400">
                     Mant. c/ {{ Number(v.maintenance_interval_km).toLocaleString() }} km
                   </p>
                 </td>
@@ -188,27 +214,68 @@
       @close="closeModal"
     >
       <form id="vehicle-form" class="space-y-4" @submit.prevent="submit">
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div>
-            <label for="vehicle-plate" class="fleet-field-label">
-              Placa <span class="text-rose-500">*</span>
-            </label>
-            <input
-              id="vehicle-plate"
-              v-model="form.license_plate"
-              type="text"
-              placeholder="Ej. HAA-1234"
-              class="fleet-input font-mono uppercase"
-              required
+        <div class="rounded-xl border border-gray-200/80 bg-gray-50/70 p-3.5 dark:border-white/[0.07] dark:bg-white/[0.02]">
+          <div class="mb-2 flex items-center justify-between gap-2">
+            <span class="fleet-field-label mb-0">Placa vehicular (El Salvador) <span class="text-rose-500">*</span></span>
+            <SalvadorPlate
+              v-if="previewLicensePlate"
+              :license-plate="previewLicensePlate"
+              :plate-type="form.plate_type !== 'CUSTOM' ? form.plate_type : ''"
+              :plate-number="form.plate_type !== 'CUSTOM' ? form.plate_number : ''"
             />
           </div>
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label for="vehicle-plate-type" class="fleet-label">Tipo de placa</label>
+              <select id="vehicle-plate-type" v-model="form.plate_type" class="fleet-select">
+                <option v-for="t in SV_PLATE_TYPES" :key="t.code" :value="t.code">{{ t.label }}</option>
+                <option value="CUSTOM">Otra / Personalizada</option>
+              </select>
+            </div>
+            <div v-if="form.plate_type !== 'CUSTOM'">
+              <label for="vehicle-plate-num" class="fleet-label">Número / letras (ej. 123456 ó 745ABC)</label>
+              <input
+                id="vehicle-plate-num"
+                v-model="form.plate_number"
+                type="text"
+                maxlength="10"
+                placeholder="Ej. 123456 o 1234"
+                class="fleet-input font-mono uppercase"
+                required
+              />
+            </div>
+            <div v-else>
+              <label for="vehicle-plate" class="fleet-label">Placa completa</label>
+              <input
+                id="vehicle-plate"
+                v-model="form.license_plate"
+                type="text"
+                placeholder="Ej. QA-DEMO-01"
+                class="fleet-input font-mono uppercase"
+                required
+              />
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label for="vehicle-status" class="fleet-field-label">Estado</label>
+            <label for="vehicle-status" class="fleet-field-label">Estado operativo</label>
             <select id="vehicle-status" v-model="form.status" class="fleet-select">
               <option value="disponible">Disponible</option>
               <option value="en_ruta">En ruta</option>
               <option value="mantenimiento">Mantenimiento</option>
             </select>
+          </div>
+          <div>
+            <label for="vehicle-odometer" class="fleet-field-label">Odómetro actual (km)</label>
+            <input
+              id="vehicle-odometer"
+              v-model.number="form.current_odometer"
+              type="number"
+              min="0"
+              class="fleet-input tabular-nums"
+            />
           </div>
         </div>
 
@@ -233,25 +300,38 @@
           </div>
         </div>
 
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div>
-            <label for="vehicle-odometer" class="fleet-field-label">Odómetro actual (km)</label>
+            <label for="vehicle-next-maint" class="fleet-field-label">Próx. mantenimiento (km)</label>
             <input
-              id="vehicle-odometer"
-              v-model.number="form.current_odometer"
+              id="vehicle-next-maint"
+              v-model.number="form.next_maintenance_odometer"
               type="number"
               min="0"
+              placeholder="Ej. 85000"
               class="fleet-input tabular-nums"
             />
           </div>
           <div>
-            <label for="vehicle-maint" class="fleet-field-label">Mant. cada (km, opcional)</label>
+            <label for="vehicle-maint" class="fleet-field-label">Intervalo (km)</label>
             <input
               id="vehicle-maint"
               v-model.number="form.maintenance_interval_km"
               type="number"
-              min="500"
-              placeholder="Ej. 5000"
+              min="100"
+              placeholder="5000"
+              class="fleet-input tabular-nums"
+            />
+          </div>
+          <div>
+            <label for="vehicle-alert-before" class="fleet-field-label">Alertar antes (km)</label>
+            <input
+              id="vehicle-alert-before"
+              v-model.number="form.maintenance_alert_before_km"
+              type="number"
+              min="50"
+              max="5000"
+              placeholder="500"
               class="fleet-input tabular-nums"
             />
           </div>
@@ -334,12 +414,14 @@ import AdminLayout from '@/components/layout/AdminLayout.vue';
 import BaseModal from '@/components/common/BaseModal.vue';
 import ComponentCard from '@/components/common/ComponentCard.vue';
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue';
+import SalvadorPlate from '@/components/common/SalvadorPlate.vue';
 import StatusBadge from '@/components/common/StatusBadge.vue';
 import TableEmptyState from '@/components/common/TableEmptyState.vue';
 import TablePagination from '@/components/common/TablePagination.vue';
 import TableRowActions from '@/components/common/TableRowActions.vue';
 import { useAuth } from '../composables/useAuth';
 import { confirmDeleteDialog, showErrorAlert, showSuccessAlert } from '../utils/alerts';
+import { parseSalvadorPlate, SV_PLATE_TYPES } from '../utils/plates';
 
 const { currentUser, isAdmin, canManageFleet, loadMe, logout } = useAuth();
 
@@ -357,13 +439,23 @@ const previewUrl = ref('');
 const fileRef = ref(null);
 
 const form = reactive({
+  plate_type: 'P',
+  plate_number: '',
   license_plate: '',
   color: '',
   brand: '',
   model: '',
   status: 'disponible',
   current_odometer: 0,
-  maintenance_interval_km: null,
+  next_maintenance_odometer: null,
+  maintenance_interval_km: 5000,
+  maintenance_alert_before_km: 500,
+});
+
+const previewLicensePlate = computed(() => {
+  if (form.plate_type === 'CUSTOM') return String(form.license_plate || '').toUpperCase().trim();
+  const num = String(form.plate_number || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  return num ? `${form.plate_type}${num}` : '';
 });
 
 const hasFilters = computed(() => Boolean(searchQuery.value.trim() || filterStatus.value));
@@ -424,26 +516,41 @@ const onFile = (e) => {
 
 const openCreate = () => {
   editingId.value = null;
+  form.plate_type = 'P';
+  form.plate_number = '';
   form.license_plate = '';
   form.color = '';
   form.brand = '';
   form.model = '';
   form.status = 'disponible';
   form.current_odometer = 0;
-  form.maintenance_interval_km = null;
+  form.next_maintenance_odometer = null;
+  form.maintenance_interval_km = 5000;
+  form.maintenance_alert_before_km = 500;
   resetPreview();
   modalOpen.value = true;
 };
 
 const openEdit = (v) => {
   editingId.value = v.id;
-  form.license_plate = v.license_plate;
+  const parsed = parseSalvadorPlate(v.license_plate, v.plate_type, v.plate_number);
+  if (parsed.isSalvador) {
+    form.plate_type = parsed.type;
+    form.plate_number = parsed.number;
+    form.license_plate = parsed.raw;
+  } else {
+    form.plate_type = 'CUSTOM';
+    form.plate_number = '';
+    form.license_plate = v.license_plate;
+  }
   form.color = v.color;
   form.brand = v.brand;
   form.model = v.model;
   form.status = v.status || 'disponible';
   form.current_odometer = v.current_odometer ?? 0;
-  form.maintenance_interval_km = v.maintenance_interval_km || null;
+  form.next_maintenance_odometer = v.next_maintenance_odometer ?? null;
+  form.maintenance_interval_km = v.maintenance_interval_km || 5000;
+  form.maintenance_alert_before_km = v.maintenance_alert_before_km || 500;
   resetPreview();
   previewUrl.value = v.photo_url || '';
   modalOpen.value = true;
@@ -461,14 +568,27 @@ const closeModal = () => {
 
 const buildFormData = () => {
   const fd = new FormData();
-  fd.append('license_plate', form.license_plate);
+  if (form.plate_type !== 'CUSTOM' && form.plate_number.trim()) {
+    const cleanNum = form.plate_number.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    fd.append('plate_type', form.plate_type);
+    fd.append('plate_number', cleanNum);
+    fd.append('license_plate', `${form.plate_type}${cleanNum}`);
+  } else {
+    fd.append('license_plate', form.license_plate);
+  }
   fd.append('color', form.color);
   fd.append('brand', form.brand);
   fd.append('model', form.model);
   fd.append('status', form.status);
   fd.append('current_odometer', String(form.current_odometer ?? 0));
+  if (form.next_maintenance_odometer !== null && form.next_maintenance_odometer !== '') {
+    fd.append('next_maintenance_odometer', String(form.next_maintenance_odometer));
+  }
   if (form.maintenance_interval_km) {
     fd.append('maintenance_interval_km', String(form.maintenance_interval_km));
+  }
+  if (form.maintenance_alert_before_km) {
+    fd.append('maintenance_alert_before_km', String(form.maintenance_alert_before_km));
   }
   if (fileRef.value) {
     fd.append('photo', fileRef.value);

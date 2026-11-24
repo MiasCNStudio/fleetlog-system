@@ -124,6 +124,7 @@ class TripTrackingController extends Controller
             'session' => $session,
             'points' => $points,
             'summary' => $summary,
+            'matched_route' => $summary['matched_route'] ?? null,
         ]);
     }
 

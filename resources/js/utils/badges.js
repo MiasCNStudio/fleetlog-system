@@ -163,6 +163,55 @@ export const LOG_MODULE_META = {
     label: 'Rastreo GPS',
     badge: 'bg-teal-500/15 text-teal-700 ring-1 ring-inset ring-teal-500/20 dark:bg-teal-500/15 dark:text-teal-300 dark:ring-teal-400/25',
   },
+  maintenance: {
+    label: 'Mantenimiento',
+    badge: 'bg-orange-500/15 text-orange-700 ring-1 ring-inset ring-orange-500/25 dark:bg-orange-500/15 dark:text-orange-300 dark:ring-orange-400/25',
+  },
+  fuel: {
+    label: 'Combustible',
+    badge: 'bg-emerald-500/15 text-emerald-700 ring-1 ring-inset ring-emerald-500/20 dark:bg-emerald-500/15 dark:text-emerald-300 dark:ring-emerald-400/20',
+  },
+};
+
+export const MAINTENANCE_ALERT_META = {
+  al_dia: {
+    label: 'Al día',
+    badge: 'bg-emerald-500/15 text-emerald-700 ring-1 ring-inset ring-emerald-500/20 dark:bg-emerald-500/15 dark:text-emerald-300 dark:ring-emerald-400/20',
+    dot: 'bg-emerald-500',
+  },
+  pronto: {
+    label: 'Mant. pronto',
+    badge: 'bg-amber-500/20 text-amber-900 ring-1 ring-inset ring-amber-500/35 dark:bg-amber-500/20 dark:text-amber-200 dark:ring-amber-400/35',
+    dot: 'bg-amber-500',
+  },
+  vencido: {
+    label: '¡MANT. VENCIDO!',
+    badge: 'bg-rose-600 text-white ring-1 ring-inset ring-rose-700 shadow-xs',
+    dot: 'bg-white',
+  },
+  sin_programar: {
+    label: 'Sin meta km',
+    badge: 'bg-gray-100 text-gray-600 ring-1 ring-inset ring-gray-300/70 dark:bg-gray-800 dark:text-gray-400 dark:ring-gray-700',
+    dot: 'bg-gray-400',
+  },
+};
+
+export const MAINTENANCE_JOB_META = {
+  programado: {
+    label: 'Programado',
+    badge: 'bg-amber-500/15 text-amber-800 ring-1 ring-inset ring-amber-500/25 dark:bg-amber-500/15 dark:text-amber-300 dark:ring-amber-400/25',
+    dot: 'bg-amber-500',
+  },
+  completado: {
+    label: 'Completado',
+    badge: 'bg-emerald-500/15 text-emerald-700 ring-1 ring-inset ring-emerald-500/20 dark:bg-emerald-500/15 dark:text-emerald-300 dark:ring-emerald-400/20',
+    dot: 'bg-emerald-500',
+  },
+  cancelado: {
+    label: 'Cancelado',
+    badge: 'bg-gray-100 text-gray-600 ring-1 ring-inset ring-gray-300/70 dark:bg-gray-800 dark:text-gray-400 dark:ring-gray-700',
+    dot: 'bg-gray-400',
+  },
 };
 
 export const TRACKING_STATUS_META = {

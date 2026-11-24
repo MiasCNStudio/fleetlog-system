@@ -131,7 +131,7 @@ class DashboardController extends Controller
 
         $upcomingAssignments = Assignment::query()
             ->with([
-                'vehicle:id,license_plate,brand,model,status',
+                'vehicle:id,license_plate,plate_type,plate_number,brand,model,status',
                 'driver:id,name,driver_code',
                 'originalDriver:id,name',
             ])
@@ -141,6 +141,17 @@ class DashboardController extends Controller
             ->orderBy('scheduled_time')
             ->limit(5)
             ->get();
+
+        $maintenanceAlerts = Vehicle::query()
+            ->whereNotNull('next_maintenance_odometer')
+            ->orderBy('license_plate')
+            ->get()
+            ->filter(fn (Vehicle $v) => in_array($v->maintenance_status, ['vencido', 'pronto'], true))
+            ->values();
+
+        $overdueMaintenanceCount = $maintenanceAlerts
+            ->where('maintenance_status', 'vencido')
+            ->count();
 
         return response()->json([
             'summary' => [
@@ -153,6 +164,8 @@ class DashboardController extends Controller
                 'total_vehiculos' => $totalVehicles,
                 'asignaciones_pendientes' => $pendingAssignmentsCount,
                 'reasignaciones_emergencia_hoy' => $emergencyReassignmentsToday,
+                'mantenimiento_alertas' => $maintenanceAlerts->count(),
+                'mantenimiento_vencido' => $overdueMaintenanceCount,
             ],
             'series' => [
                 'categories' => $categories,
@@ -163,6 +176,7 @@ class DashboardController extends Controller
             'active_trips' => $activeTrips,
             'recent_incidents' => $recentIncidents,
             'upcoming_assignments' => $upcomingAssignments,
+            'maintenance_alerts' => $maintenanceAlerts,
             'my_assignments' => $myAssignments,
             'my_active_trip' => $myActiveTrip,
             'user' => $authUser,

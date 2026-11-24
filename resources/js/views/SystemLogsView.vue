@@ -32,6 +32,8 @@
             <option value="bitacoras">Bitácora</option>
             <option value="tracking">Rastreo GPS</option>
             <option value="vehicles">Vehículos</option>
+            <option value="maintenance">Mantenimiento</option>
+            <option value="fuel">Combustible</option>
             <option value="incidents">Incidencias</option>
             <option value="users">Usuarios</option>
             <option value="auth">Acceso</option>

@@ -38,7 +38,20 @@ class VehicleController extends Controller
     public function options(): JsonResponse
     {
         $vehicles = Vehicle::query()
-            ->select(['id', 'license_plate', 'brand', 'model', 'color', 'status', 'current_odometer'])
+            ->select([
+                'id',
+                'license_plate',
+                'plate_type',
+                'plate_number',
+                'brand',
+                'model',
+                'color',
+                'status',
+                'current_odometer',
+                'maintenance_interval_km',
+                'next_maintenance_odometer',
+                'maintenance_alert_before_km',
+            ])
             ->with('latestBitacora:bitacoras.id,bitacoras.vehicle_id,bitacoras.type,bitacoras.recorded_at')
             ->orderBy('license_plate')
             ->get()
@@ -51,11 +64,16 @@ class VehicleController extends Controller
                 return [
                     'id' => $vehicle->id,
                     'license_plate' => $vehicle->license_plate,
+                    'plate_type' => $vehicle->plate_type,
+                    'plate_number' => $vehicle->plate_number,
                     'brand' => $vehicle->brand,
                     'model' => $vehicle->model,
                     'color' => $vehicle->color,
                     'status' => $vehicle->status,
                     'current_odometer' => $vehicle->current_odometer,
+                    'next_maintenance_odometer' => $vehicle->next_maintenance_odometer,
+                    'maintenance_status' => $vehicle->maintenance_status,
+                    'km_to_maintenance' => $vehicle->km_to_maintenance,
                     'next_type' => $nextType,
                 ];
             });
