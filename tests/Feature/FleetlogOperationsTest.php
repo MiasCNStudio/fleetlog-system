@@ -9,6 +9,7 @@ use App\Models\Vehicle;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -618,5 +619,52 @@ class FleetlogOperationsTest extends TestCase
             ->getJson('/api/drivers/options')
             ->assertOk()
             ->assertJsonFragment(['name' => 'Ricardo Gonzales']);
+    }
+
+    public function test_place_search_supports_commercial_pois_via_arcgis_and_google_maps_links(): void
+    {
+        $user = User::factory()->create(['role' => User::ROLE_DISPATCHER]);
+
+        Http::fake([
+            'geocode.arcgis.com/*' => Http::response([
+                'candidates' => [
+                    [
+                        'address' => 'Beverly Hills Hotel & Business',
+                        'location' => ['x' => -89.2527309, 'y' => 13.6615996],
+                        'score' => 100,
+                        'attributes' => [
+                            'PlaceName' => 'Beverly Hills Hotel & Business',
+                            'Place_addr' => 'Antiguo Cuscatlan, La Libertad',
+                            'Type' => 'Hotel',
+                        ],
+                    ],
+                ],
+            ], 200),
+            'nominatim.openstreetmap.org/search*' => Http::response([], 200),
+            'nominatim.openstreetmap.org/reverse*' => Http::response([
+                'name' => 'Beverly Hills Hotel & Business',
+                'display_name' => 'Antiguo Cuscatlán, La Libertad, El Salvador',
+                'place_id' => 999111,
+            ], 200),
+        ]);
+
+        // 1. Búsqueda de hotel/negocio privado que Nominatim no tiene pero ArcGIS sí
+        $poiResp = $this->actingAs($user)
+            ->getJson('/api/places/search?q='.urlencode('Beverly Hills: Hotel & Business'))
+            ->assertOk();
+
+        $poiResp->assertJsonPath('provider', 'arcgis+osm');
+        $poiResp->assertJsonPath('data.0.name', 'Beverly Hills Hotel & Business');
+        $this->assertEqualsWithDelta(13.6615996, (float) $poiResp->json('data.0.latitude'), 0.0001);
+
+        // 2. Pegar enlace de Google Maps extrae nombre y coordenadas exactas
+        $gmapsUrl = 'https://www.google.com/maps/place/Beverly+Hills+Hotel+%26+Business/@13.6615996,-89.2527309,17z';
+        $linkResp = $this->actingAs($user)
+            ->getJson('/api/places/search?q='.urlencode($gmapsUrl))
+            ->assertOk();
+
+        $linkResp->assertJsonPath('provider', 'google_link');
+        $linkResp->assertJsonPath('data.0.name', 'Beverly Hills Hotel & Business');
+        $this->assertEqualsWithDelta(-89.2527309, (float) $linkResp->json('data.0.longitude'), 0.0001);
     }
 }

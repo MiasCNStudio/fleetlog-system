@@ -24,7 +24,7 @@
             v-model="searchText"
             type="text"
             class="fleet-input pl-10 pr-8"
-            placeholder="Buscar lugar (ej. Centro Histórico de El Salvador)…"
+            placeholder="Buscar hotel, negocio, dirección o pegar link de Google Maps…"
             @keydown.enter.prevent="searchPlaces"
           />
           <button
@@ -72,7 +72,7 @@
         </button>
       </div>
       <p v-else-if="searchDone && results.length === 0" class="mt-1 text-theme-xs text-amber-600 dark:text-amber-400">
-        No se encontraron coincidencias exactas. Puedes hacer clic directamente en el mapa para fijar el punto.
+        No se encontraron coincidencias exactas. Puedes pegar un enlace compartido de Google Maps o hacer clic directamente en el mapa.
       </p>
     </div>
 
