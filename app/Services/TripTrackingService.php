@@ -221,7 +221,36 @@ class TripTrackingService
         array $deviceContext = [],
         ?Request $request = null,
     ): array {
-        return DB::transaction(function () use ($session, $authUser, $pointsPayload, $deviceContext, $request) {
+        if (! $authUser->canManageFleet()
+            && (int) $session->driver_id !== (int) $authUser->id
+            && (int) $session->started_by_user_id !== (int) $authUser->id
+        ) {
+            throw new AuthorizationException('No tienes permiso para reportar ubicación en esta misión.');
+        }
+
+        $incomingUuid = trim((string) ($deviceContext['device_uuid'] ?? ($request?->header('X-Device-UUID') ?? '')));
+        if ($incomingUuid !== '' && $incomingUuid !== $session->device_uuid) {
+            SystemLogger::record(
+                $authUser,
+                'tracking',
+                'device_mismatch',
+                "Alerta: intento de envío de GPS desde {$incomingUuid} distinto al celular autorizado {$session->device_uuid}",
+                $session,
+                [
+                    'tracking_session_id' => $session->id,
+                    'expected_device_uuid' => $session->device_uuid,
+                    'incoming_device_uuid' => $incomingUuid,
+                    'incoming_device_name' => $deviceContext['device_name'] ?? null,
+                ],
+                $request,
+            );
+
+            throw new AuthorizationException(
+                "Dispositivo no autorizado: la misión pertenece al celular {$session->device_name}."
+            );
+        }
+
+        return DB::transaction(function () use ($session, $authUser, $pointsPayload, $incomingUuid) {
             /** @var TripTrackingSession $locked */
             $locked = TripTrackingSession::query()->lockForUpdate()->findOrFail($session->id);
 
@@ -231,30 +260,7 @@ class TripTrackingService
                 ]);
             }
 
-            if (! $authUser->canManageFleet()
-                && (int) $locked->driver_id !== (int) $authUser->id
-                && (int) $locked->started_by_user_id !== (int) $authUser->id
-            ) {
-                throw new AuthorizationException('No tienes permiso para reportar ubicación en esta misión.');
-            }
-
-            $incomingUuid = trim((string) ($deviceContext['device_uuid'] ?? ($request?->header('X-Device-UUID') ?? '')));
             if ($incomingUuid !== '' && $incomingUuid !== $locked->device_uuid) {
-                SystemLogger::record(
-                    $authUser,
-                    'tracking',
-                    'device_mismatch',
-                    "Alerta: intento de envío de GPS desde {$incomingUuid} distinto al celular autorizado {$locked->device_uuid}",
-                    $locked,
-                    [
-                        'tracking_session_id' => $locked->id,
-                        'expected_device_uuid' => $locked->device_uuid,
-                        'incoming_device_uuid' => $incomingUuid,
-                        'incoming_device_name' => $deviceContext['device_name'] ?? null,
-                    ],
-                    $request,
-                );
-
                 throw new AuthorizationException(
                     "Dispositivo no autorizado: la misión pertenece al celular {$locked->device_name}."
                 );
