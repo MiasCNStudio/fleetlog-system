@@ -507,10 +507,10 @@ class FleetlogOperationsTest extends TestCase
         $assignment = Assignment::create([
             'vehicle_id' => $vehicle->id,
             'driver_id' => $driver->id,
-            'assigned_by_user_id' => $dispatcher->id,
+            'created_by' => $dispatcher->id,
             'scheduled_date' => now()->toDateString(),
             'destination' => 'Santa Tecla',
-            'status' => Assignment::STATUS_PENDIENTE,
+            'status' => Assignment::STATUS_PENDING,
         ]);
 
         // 1. Motorista sale primero a "Echar gasolina" (trip_category = combustible) con GPS
