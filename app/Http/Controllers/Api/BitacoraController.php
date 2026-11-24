@@ -140,13 +140,13 @@ class BitacoraController extends Controller
                                 'trip_category' => ['Solo el administrador o jefe de motoristas puede registrar un viaje imprevisto.'],
                             ]);
                         }
-                    } elseif ($tripCategory === Bitacora::CATEGORY_PERSONAL) {
-                        // Permitido para motoristas y jefes/admin, siempre con destino obligatorio
+                    } elseif (in_array($tripCategory, [Bitacora::CATEGORY_PERSONAL, Bitacora::CATEGORY_FUEL], true)) {
+                        // Permitido para motoristas y jefes/admin
                     } else {
                         throw ValidationException::withMessages([
                             'trip_category' => $authUser->canManageFleet()
-                                ? ['Selecciona una asignación o indica si la salida es Personal o Viaje imprevisto.']
-                                : ['Los motoristas solo pueden iniciar salidas desde una asignación (o registrar una salida Personal).'],
+                                ? ['Selecciona una asignación o indica si la salida es Personal, Combustible o Viaje imprevisto.']
+                                : ['Los motoristas solo pueden iniciar salidas desde una asignación, Personal o Echar gasolina.'],
                         ]);
                     }
                 }
@@ -189,6 +189,9 @@ class BitacoraController extends Controller
             $destRaw = isset($data['destination']) ? trim((string) $data['destination']) : '';
             if ($destRaw === '' && $assignment && $type === Bitacora::TYPE_SALIDA) {
                 $destRaw = (string) $assignment->destination;
+            }
+            if ($destRaw === '' && $type === Bitacora::TYPE_SALIDA && $tripCategory === Bitacora::CATEGORY_FUEL) {
+                $destRaw = 'Gasolinera';
             }
 
             if ($type === Bitacora::TYPE_SALIDA && $destRaw === '') {
@@ -269,12 +272,14 @@ class BitacoraController extends Controller
             $actionName = match (true) {
                 $type === Bitacora::TYPE_SALIDA && $tripCategory === Bitacora::CATEGORY_PERSONAL => 'personal_trip',
                 $type === Bitacora::TYPE_SALIDA && $tripCategory === Bitacora::CATEGORY_UNPLANNED => 'unplanned_trip',
+                $type === Bitacora::TYPE_SALIDA && $tripCategory === Bitacora::CATEGORY_FUEL => 'fuel_trip',
                 default => 'created',
             };
 
             $catLabel = match ($tripCategory) {
                 Bitacora::CATEGORY_PERSONAL => 'Personal',
                 Bitacora::CATEGORY_UNPLANNED => 'Viaje imprevisto',
+                Bitacora::CATEGORY_FUEL => 'Combustible',
                 default => 'Asignación',
             };
 
@@ -361,5 +366,131 @@ class BitacoraController extends Controller
         );
 
         return response()->json(null, 204);
+    }
+
+    public function startAssignmentFromFuel(Request $request, Assignment $assignment): JsonResponse
+    {
+        $data = $request->validate([
+            'odometer_km' => ['nullable', 'integer', 'min:0'],
+            'fuel_level' => ['nullable', 'string', 'max:24'],
+            'notes' => ['nullable', 'string', 'max:2000'],
+            'device_uuid' => ['nullable', 'string', 'max:128'],
+            'device_name' => ['nullable', 'string', 'max:120'],
+            'device_platform' => ['nullable', 'string', 'max:40'],
+            'initial_latitude' => ['nullable', 'numeric', 'between:-90,90'],
+            'initial_longitude' => ['nullable', 'numeric', 'between:-180,180'],
+            'initial_accuracy_m' => ['nullable', 'numeric', 'min:0'],
+            'battery_level' => ['nullable', 'integer', 'between:0,100'],
+        ]);
+
+        $authUser = $request->user();
+
+        $salida = DB::transaction(function () use ($assignment, $data, $authUser, $request) {
+            /** @var Assignment $lockedAssignment */
+            $lockedAssignment = Assignment::query()->lockForUpdate()->findOrFail($assignment->id);
+            if ($lockedAssignment->status !== Assignment::STATUS_PENDING) {
+                throw ValidationException::withMessages([
+                    'assignment_id' => ['La asignación debe estar pendiente para iniciarse desde gasolinera.'],
+                ]);
+            }
+
+            if (! $authUser->canManageFleet() && (int) $lockedAssignment->driver_id !== (int) $authUser->id) {
+                throw ValidationException::withMessages([
+                    'assignment_id' => ['Esta asignación pertenece a otro motorista.'],
+                ]);
+            }
+
+            /** @var Vehicle $vehicle */
+            $vehicle = Vehicle::query()->lockForUpdate()->findOrFail($lockedAssignment->vehicle_id);
+            $lastSalida = $vehicle->bitacoras()
+                ->where('type', Bitacora::TYPE_SALIDA)
+                ->orderByDesc('recorded_at')
+                ->orderByDesc('id')
+                ->first();
+
+            $isOnFuelTrip = $vehicle->nextBitacoraType() === Bitacora::TYPE_REGRESO
+                && $lastSalida?->trip_category === Bitacora::CATEGORY_FUEL;
+
+            if (! $isOnFuelTrip) {
+                throw ValidationException::withMessages([
+                    'vehicle_id' => ['La unidad no está en un movimiento activo de carga de combustible.'],
+                ]);
+            }
+
+            $odometer = isset($data['odometer_km']) ? (int) $data['odometer_km'] : $vehicle->current_odometer;
+            if ($vehicle->current_odometer > 0 && $odometer < $vehicle->current_odometer) {
+                throw ValidationException::withMessages([
+                    'odometer_km' => ["El odómetro no puede ser menor al último registrado ({$vehicle->current_odometer} km)."],
+                ]);
+            }
+
+            // 1. Cerrar tramo de carga de combustible en gasolinera
+            $regreso = Bitacora::query()->create([
+                'vehicle_id' => $vehicle->id,
+                'user_id' => $authUser->id,
+                'driver_id' => $lastSalida->driver_id ?? $authUser->id,
+                'type' => Bitacora::TYPE_REGRESO,
+                'trip_category' => Bitacora::CATEGORY_FUEL,
+                'recorded_at' => now(),
+                'odometer_km' => $odometer,
+                'fuel_level' => $data['fuel_level'] ?? 'lleno',
+                'destination' => 'Gasolinera (continuó a misión)',
+                'notes' => $data['notes'] ?? 'Finalizó carga de combustible e inició asignación directamente.',
+            ]);
+
+            $this->tracking->finishForRegreso($regreso, $lastSalida, $authUser, $data, $request);
+
+            // 2. Abrir inmediatamente la salida de la asignación desde la gasolinera
+            $driverId = $authUser->canManageFleet()
+                ? ($lockedAssignment->driver_id ?? $authUser->id)
+                : $authUser->id;
+
+            $newSalida = Bitacora::query()->create([
+                'vehicle_id' => $vehicle->id,
+                'user_id' => $authUser->id,
+                'driver_id' => $driverId,
+                'assignment_id' => $lockedAssignment->id,
+                'type' => Bitacora::TYPE_SALIDA,
+                'trip_category' => Bitacora::CATEGORY_ASSIGNMENT,
+                'recorded_at' => now(),
+                'odometer_km' => $odometer,
+                'fuel_level' => $data['fuel_level'] ?? 'lleno',
+                'destination' => $lockedAssignment->destination,
+                'destination_address' => $lockedAssignment->destination_address,
+                'latitude' => $lockedAssignment->latitude,
+                'longitude' => $lockedAssignment->longitude,
+                'place_id' => $lockedAssignment->place_id,
+                'companions' => $lockedAssignment->companions,
+                'official_instruction' => $lockedAssignment->official_instruction,
+                'notes' => 'Salida directa desde gasolinera',
+            ]);
+
+            $lockedAssignment->status = Assignment::STATUS_IN_PROGRESS;
+            $lockedAssignment->save();
+
+            $vehicle->status = Vehicle::STATUS_IN_ROUTE;
+            $vehicle->current_odometer = $odometer;
+            $vehicle->save();
+
+            $this->tracking->startForSalida($newSalida, $authUser, $data, $request);
+
+            SystemLogger::record(
+                $authUser,
+                'bitacoras',
+                'fuel_to_assignment',
+                "Pasó de carga de combustible a misión en {$vehicle->license_plate} hacia {$lockedAssignment->destination}",
+                $newSalida,
+                [
+                    'assignment_id' => $lockedAssignment->id,
+                    'fuel_regreso_id' => $regreso->id,
+                    'salida_id' => $newSalida->id,
+                ],
+                $request,
+            );
+
+            return $newSalida;
+        });
+
+        return response()->json($salida->load($this->relations()), 201);
     }
 }

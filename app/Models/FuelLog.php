@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Storage;
 
 class FuelLog extends Model
 {
@@ -17,16 +18,26 @@ class FuelLog extends Model
         'vehicle_id',
         'user_id',
         'driver_id',
+        'bitacora_id',
         'filled_at',
         'odometer_km',
         'gallons',
         'cost_usd',
         'fuel_type',
         'station',
+        'latitude',
+        'longitude',
+        'location_address',
         'full_tank',
         'km_since_last',
         'km_per_gallon',
         'notes',
+        'receipt_path',
+        'receipt_name',
+    ];
+
+    protected $appends = [
+        'receipt_url',
     ];
 
     protected function casts(): array
@@ -36,10 +47,19 @@ class FuelLog extends Model
             'odometer_km' => 'integer',
             'gallons' => 'float',
             'cost_usd' => 'float',
+            'latitude' => 'float',
+            'longitude' => 'float',
             'full_tank' => 'boolean',
             'km_since_last' => 'integer',
             'km_per_gallon' => 'float',
         ];
+    }
+
+    public function getReceiptUrlAttribute(): ?string
+    {
+        return $this->receipt_path
+            ? Storage::disk('public')->url($this->receipt_path)
+            : null;
     }
 
     public function vehicle(): BelongsTo
@@ -55,5 +75,10 @@ class FuelLog extends Model
     public function driver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'driver_id');
+    }
+
+    public function bitacora(): BelongsTo
+    {
+        return $this->belongsTo(Bitacora::class);
     }
 }

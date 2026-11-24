@@ -64,6 +64,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('bitacoras', [BitacoraController::class, 'index']);
     Route::get('bitacoras/{bitacora}', [BitacoraController::class, 'show']);
     Route::post('bitacoras', [BitacoraController::class, 'store']);
+    Route::post('assignments/{assignment}/start-from-fuel', [BitacoraController::class, 'startAssignmentFromFuel']);
     Route::middleware('role:admin,despachador')->group(function () {
         Route::put('bitacoras/{bitacora}', [BitacoraController::class, 'update']);
         Route::patch('bitacoras/{bitacora}', [BitacoraController::class, 'update']);
@@ -100,8 +101,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('maintenances', [VehicleMaintenanceController::class, 'index']);
     Route::delete('maintenances/{maintenance}', [VehicleMaintenanceController::class, 'destroy'])->middleware('role:admin');
 
-    // Cargas de combustible (registro para todos; borrado solo admin)
+    // Cargas de combustible (registro y comprobantes para todos; borrado solo admin)
+    Route::get('fuel-logs/summary', [FuelLogController::class, 'summary']);
     Route::get('fuel-logs', [FuelLogController::class, 'index']);
     Route::post('fuel-logs', [FuelLogController::class, 'store']);
+    Route::post('fuel-logs/{fuelLog}/receipt', [FuelLogController::class, 'uploadReceipt']);
     Route::delete('fuel-logs/{fuelLog}', [FuelLogController::class, 'destroy'])->middleware('role:admin');
 });

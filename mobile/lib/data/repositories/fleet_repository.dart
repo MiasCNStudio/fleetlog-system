@@ -560,9 +560,111 @@ class FleetRepository {
     }
   }
 
-  Future<void> createFuelLog(Map<String, dynamic> payload) async {
+  Future<BitacoraEntry> startAssignmentFromFuel({
+    required int assignmentId,
+    int? odometerKm,
+    String? fuelLevel,
+    String? notes,
+  }) async {
     try {
-      await _api.dio.post('/fuel-logs', data: payload);
+      final identity = await _device.getIdentity();
+      final pos = await BackgroundTrackingService.tryCurrentPosition();
+      int? batteryLevel;
+      try {
+        batteryLevel = await Battery().batteryLevel;
+      } catch (_) {}
+
+      final res = await _api.dio.post<Map<String, dynamic>>(
+        '/assignments/$assignmentId/start-from-fuel',
+        data: {
+          'odometer_km': ?odometerKm,
+          if (fuelLevel != null && fuelLevel.isNotEmpty) 'fuel_level': fuelLevel,
+          if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
+          'device_uuid': identity.uuid,
+          'device_name': identity.name,
+          'device_platform': identity.platform,
+          if (pos != null) 'initial_latitude': pos.latitude,
+          if (pos != null) 'initial_longitude': pos.longitude,
+          if (pos != null) 'initial_accuracy_m': pos.accuracy,
+          'battery_level': ?batteryLevel,
+        },
+      );
+      final created = BitacoraEntry.fromJson(res.data ?? const {});
+      if (created.trackingSession != null) {
+        await BackgroundTrackingService.startMission(
+          sessionId: created.trackingSession!.id,
+          vehiclePlate: created.vehicle?.licensePlate ?? 'Unidad',
+          destination: created.destination,
+        );
+      }
+      return created;
+    } catch (e) {
+      throw ApiClient.parseError(e);
+    }
+  }
+
+  Future<FuelSummaryReport> fetchFuelSummary({
+    String range = 'week',
+    int? vehicleId,
+  }) async {
+    try {
+      final res = await _api.dio.get<Map<String, dynamic>>(
+        '/fuel-logs/summary',
+        queryParameters: {
+          'range': range,
+          'vehicle_id': ?vehicleId,
+        },
+      );
+      return FuelSummaryReport.fromJson(res.data ?? const {});
+    } catch (e) {
+      throw ApiClient.parseError(e);
+    }
+  }
+
+  Future<void> createFuelLog(
+    Map<String, dynamic> payload, {
+    String? receiptFilePath,
+    bool captureGps = true,
+  }) async {
+    try {
+      final data = <String, dynamic>{...payload};
+      if (captureGps &&
+          data['latitude'] == null &&
+          data['longitude'] == null) {
+        final pos = await BackgroundTrackingService.tryCurrentPosition();
+        if (pos != null) {
+          data['latitude'] = pos.latitude;
+          data['longitude'] = pos.longitude;
+        }
+      }
+
+      if (receiptFilePath != null && receiptFilePath.isNotEmpty) {
+        final formData = FormData.fromMap({
+          ...data.map((k, v) {
+            if (v is bool) return MapEntry(k, v ? '1' : '0');
+            return MapEntry(k, v);
+          })..removeWhere((_, v) => v == null),
+          'receipt': await MultipartFile.fromFile(receiptFilePath),
+        });
+        await _api.dio.post('/fuel-logs', data: formData);
+      } else {
+        await _api.dio.post('/fuel-logs', data: data);
+      }
+    } catch (e) {
+      throw ApiClient.parseError(e);
+    }
+  }
+
+  Future<FuelLogEntry> uploadFuelReceipt(int fuelLogId, String filePath) async {
+    try {
+      final formData = FormData.fromMap({
+        'receipt': await MultipartFile.fromFile(filePath),
+      });
+      final res = await _api.dio.post<Map<String, dynamic>>(
+        '/fuel-logs/$fuelLogId/receipt',
+        data: formData,
+      );
+      return FuelLogEntry.fromJson(res.data ?? const {});
     } catch (e) {
       throw ApiClient.parseError(e);
     }

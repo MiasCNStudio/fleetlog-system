@@ -42,6 +42,10 @@ export const BITACORA_CATEGORY_META = {
     label: 'Imprevisto',
     badge: 'bg-rose-500/15 text-rose-700 ring-1 ring-inset ring-rose-500/20 dark:bg-rose-500/15 dark:text-rose-300 dark:ring-rose-400/25',
   },
+  combustible: {
+    label: 'Combustible',
+    badge: 'bg-amber-500/15 text-amber-800 ring-1 ring-inset ring-amber-500/25 dark:bg-amber-500/15 dark:text-amber-300 dark:ring-amber-400/25',
+  },
 };
 
 export const ASSIGNMENT_STATUS_META = {
@@ -256,6 +260,18 @@ export const LOG_ACTION_META = {
   unplanned_trip: {
     label: 'Imprevisto',
     badge: 'bg-amber-500/15 text-amber-800 ring-1 ring-inset ring-amber-500/25 dark:bg-amber-500/15 dark:text-amber-300 dark:ring-amber-400/25',
+  },
+  fuel_trip: {
+    label: 'Echar gasolina',
+    badge: 'bg-amber-500/15 text-amber-800 ring-1 ring-inset ring-amber-500/25 dark:bg-amber-500/15 dark:text-amber-300 dark:ring-amber-400/25',
+  },
+  fuel_to_assignment: {
+    label: 'Gasolinera → Misión',
+    badge: 'bg-teal-500/15 text-teal-700 ring-1 ring-inset ring-teal-500/20 dark:bg-teal-500/15 dark:text-teal-300 dark:ring-teal-400/25',
+  },
+  receipt_attached: {
+    label: 'Factura adjunta',
+    badge: 'bg-sky-500/15 text-sky-700 ring-1 ring-inset ring-sky-500/20 dark:bg-sky-500/15 dark:text-sky-300 dark:ring-sky-400/25',
   },
   login: {
     label: 'Ingreso',

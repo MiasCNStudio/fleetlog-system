@@ -18,10 +18,13 @@ class Bitacora extends Model
 
     public const CATEGORY_UNPLANNED = 'imprevisto';
 
+    public const CATEGORY_FUEL = 'combustible';
+
     public const CATEGORIES = [
         self::CATEGORY_ASSIGNMENT,
         self::CATEGORY_PERSONAL,
         self::CATEGORY_UNPLANNED,
+        self::CATEGORY_FUEL,
     ];
 
     public const FUEL_LEVELS = [

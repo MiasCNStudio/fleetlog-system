@@ -209,6 +209,203 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  Future<void> _startFuelTrip() async {
+    final repo = context.read<FleetRepository>();
+    var vehicles = <dynamic>[];
+    try {
+      vehicles = await repo.fetchVehicleOptions();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      return;
+    }
+
+    final available = vehicles.where((v) => v.isAvailable).toList();
+    if (!mounted) return;
+    if (available.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No hay unidades disponibles para salir a echar gasolina.')),
+      );
+      return;
+    }
+
+    int selectedVehicleId = available.first.id;
+    final odomCtrl = TextEditingController(text: '${available.first.currentOdometer}');
+    final stationCtrl = TextEditingController(text: 'Gasolinera');
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlg) => AlertDialog(
+          title: const Text('Salir a echar gasolina'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Registra la salida a gasolinera con rastreo GPS. Desde allá podrás regresar a la empresa o salir directo a tu asignación.',
+                  style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<int>(
+                  initialValue: selectedVehicleId,
+                  decoration: const InputDecoration(labelText: 'Unidad *'),
+                  items: [
+                    for (final v in available)
+                      DropdownMenuItem<int>(
+                        value: v.id as int,
+                        child: Text('${v.licensePlate} · ${v.brand}'),
+                      ),
+                  ],
+                  onChanged: (v) {
+                    if (v == null) return;
+                    final match = available.where((item) => item.id == v).firstOrNull;
+                    setDlg(() {
+                      selectedVehicleId = v;
+                      if (match != null) odomCtrl.text = '${match.currentOdometer}';
+                    });
+                  },
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: odomCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Odómetro actual (km)'),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: stationCtrl,
+                  decoration: const InputDecoration(labelText: 'Gasolinera / Destino'),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton.icon(
+              onPressed: () => Navigator.pop(ctx, true),
+              icon: const Icon(Icons.local_gas_station_outlined, size: 18),
+              label: const Text('Salir a gasolinera'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+    await BackgroundTrackingService.requestLocationPermissions();
+    if (!mounted) return;
+
+    try {
+      await repo.createBitacora({
+        'vehicle_id': selectedVehicleId,
+        'trip_category': 'combustible',
+        'destination': stationCtrl.text.trim().isEmpty ? 'Gasolinera' : stationCtrl.text.trim(),
+        'odometer_km': int.tryParse(odomCtrl.text.trim()),
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Viaje de combustible iniciado con rastreo GPS.')),
+      );
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+    }
+  }
+
+  Future<void> _startAssignmentFromFuelDialog(List<Assignment> pendingAssignments, int? defaultOdom) async {
+    if (pendingAssignments.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No tienes asignaciones pendientes para iniciar desde gasolinera.')),
+      );
+      return;
+    }
+
+    int selectedAssignmentId = pendingAssignments.first.id;
+    final odomCtrl = TextEditingController(
+      text: defaultOdom != null ? '$defaultOdom' : '',
+    );
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlg) => AlertDialog(
+          title: const Text('Salir directo a misión'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Se cerrará la ida a gasolinera sin volver a base y comenzará tu asignación con rastreo GPS continuo.',
+                  style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<int>(
+                  initialValue: selectedAssignmentId,
+                  decoration: const InputDecoration(labelText: 'Asignación pendiente *'),
+                  items: [
+                    for (final a in pendingAssignments)
+                      DropdownMenuItem<int>(
+                        value: a.id,
+                        child: Text(
+                          '${a.destination} (${a.vehicle?.licensePlate ?? ''})',
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                  ],
+                  onChanged: (v) {
+                    if (v != null) setDlg(() => selectedAssignmentId = v);
+                  },
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: odomCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Odómetro actual (km)'),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton.icon(
+              onPressed: () => Navigator.pop(ctx, true),
+              icon: const Icon(Icons.play_arrow_rounded, size: 18),
+              label: const Text('Iniciar misión ahora'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (ok != true || !mounted) return;
+    await BackgroundTrackingService.requestLocationPermissions();
+    if (!mounted) return;
+
+    try {
+      await context.read<FleetRepository>().startAssignmentFromFuel(
+        assignmentId: selectedAssignmentId,
+        odometerKm: int.tryParse(odomCtrl.text.trim()),
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Asignación iniciada directo desde la gasolinera.')),
+      );
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+    }
+  }
+
   Future<void> _sendSosAlert(int sessionId) async {
     final msgCtrl = TextEditingController();
     final confirm = await showDialog<bool>(
@@ -478,8 +675,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () => context.push('/combustible'),
+              child: FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFFD97706),
+                ),
+                onPressed: _startFuelTrip,
                 icon: const Icon(Icons.local_gas_station_outlined, size: 18),
                 label: const Text('Echar gas'),
               ),
@@ -494,6 +694,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ],
         ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () => context.push('/combustible'),
+            icon: const Icon(Icons.receipt_long_outlined, size: 18),
+            label: const Text('Cargas, facturas y resumen \$/km'),
+          ),
+        ),
       ],
     );
   }
@@ -507,6 +716,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final addr = session?.salidaBitacora?.destinationAddress ?? activeTrip?.destinationAddress;
     final vehicleId = session?.vehicleId ?? activeTrip?.vehicleId;
     final odom = activeTrip?.odometerKm ?? session?.vehicle?.currentOdometer;
+    final isFuelTrip = activeTrip?.isFuelTrip ?? false;
+    final pendingMine = (_data?.myAssignments ?? const <Assignment>[]).where((a) => a.isPending).toList();
 
     return Card(
       color: const Color(0xFF131C31),
@@ -521,18 +732,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF10B981).withValues(alpha: 0.2),
+                    color: (isFuelTrip ? const Color(0xFFF59E0B) : const Color(0xFF10B981)).withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(999),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.gps_fixed, size: 14, color: Color(0xFF34D399)),
-                      SizedBox(width: 6),
+                      Icon(
+                        isFuelTrip ? Icons.local_gas_station : Icons.gps_fixed,
+                        size: 14,
+                        color: isFuelTrip ? const Color(0xFFFBBF24) : const Color(0xFF34D399),
+                      ),
+                      const SizedBox(width: 6),
                       Text(
-                        'MISIÓN ACTIVA · GPS EN VIVO',
+                        isFuelTrip ? 'CARGA DE GASOLINA · GPS' : 'MISIÓN ACTIVA · GPS EN VIVO',
                         style: TextStyle(
-                          color: Color(0xFF34D399),
+                          color: isFuelTrip ? const Color(0xFFFBBF24) : const Color(0xFF34D399),
                           fontSize: 11,
                           fontWeight: FontWeight.w800,
                         ),
@@ -603,6 +818,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ],
             ),
             const SizedBox(height: 10),
+            if (isFuelTrip) ...[
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFFD97706),
+                  ),
+                  onPressed: () => context.push('/combustible'),
+                  icon: const Icon(Icons.local_gas_station_outlined, size: 18),
+                  label: const Text('Registrar carga y foto aquí'),
+                ),
+              ),
+              if (pendingMine.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF465FFF),
+                    ),
+                    onPressed: () => _startAssignmentFromFuelDialog(pendingMine, odom),
+                    icon: const Icon(Icons.alt_route, size: 18),
+                    label: Text('Salir directo a asignación (${pendingMine.length})'),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 8),
+            ],
             Row(
               children: [
                 if (vehicleId != null)
@@ -614,7 +857,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                       onPressed: () => _registerReturn(vehicleId, odom),
                       icon: const Icon(Icons.check_circle_outline, size: 18),
-                      label: const Text('Registrar regreso'),
+                      label: Text(isFuelTrip ? 'Regresar a empresa' : 'Registrar regreso'),
                     ),
                   ),
                 if (session != null) ...[

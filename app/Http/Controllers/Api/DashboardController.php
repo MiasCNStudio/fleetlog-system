@@ -85,6 +85,7 @@ class DashboardController extends Controller
                 'license_plate' => $vehicle->license_plate,
                 'brand' => $vehicle->brand,
                 'model' => $vehicle->model,
+                'trip_category' => $b?->trip_category ?? 'asignacion',
                 'destination' => $b?->destination,
                 'destination_address' => $b?->destination_address,
                 'latitude' => $b?->latitude,

@@ -7,6 +7,8 @@ use App\Models\Incident;
 use App\Models\User;
 use App\Models\Vehicle;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class FleetlogOperationsTest extends TestCase
@@ -482,5 +484,112 @@ class FleetlogOperationsTest extends TestCase
             ->assertOk()
             ->assertJsonPath('next_maintenance_odometer', 10080)
             ->assertJsonPath('maintenance_status', 'al_dia');
+    }
+
+    public function test_fuel_gps_receipt_summary_cost_per_km_and_fuel_to_assignment_flow(): void
+    {
+        Storage::fake('public');
+
+        $dispatcher = User::factory()->create(['role' => User::ROLE_DISPATCHER]);
+        $driver = User::factory()->create(['role' => User::ROLE_DRIVER, 'driver_code' => 'M-55']);
+        $vehicle = Vehicle::create([
+            'plate_type' => 'P',
+            'plate_number' => '888999',
+            'brand' => 'Toyota',
+            'model' => 'Hilux',
+            'color' => 'Gris',
+            'status' => 'disponible',
+            'current_odometer' => 1000,
+        ]);
+
+        // Motorista tiene una asignación pendiente para hoy
+        $assignment = Assignment::create([
+            'vehicle_id' => $vehicle->id,
+            'driver_id' => $driver->id,
+            'assigned_by_user_id' => $dispatcher->id,
+            'scheduled_date' => now()->toDateString(),
+            'destination' => 'Santa Tecla',
+            'status' => Assignment::STATUS_PENDIENTE,
+        ]);
+
+        // 1. Motorista sale primero a "Echar gasolina" (trip_category = combustible) con GPS
+        $fuelTrip = $this->actingAs($driver)->postJson('/api/bitacoras', [
+            'vehicle_id' => $vehicle->id,
+            'trip_category' => 'combustible',
+            'odometer_km' => 1000,
+            'device_uuid' => 'android-driver-55',
+            'device_name' => 'Samsung A54',
+            'device_platform' => 'android',
+            'initial_latitude' => 13.6978,
+            'initial_longitude' => -89.1914,
+        ])->assertCreated();
+
+        $fuelTrip->assertJsonPath('trip_category', 'combustible');
+        $fuelTrip->assertJsonPath('type', 'salida');
+        $bitacoraId = $fuelTrip->json('id');
+
+        // 2. Registra primera carga sin factura (la adjuntará después), con ubicación GPS de gasolinera
+        $fuel1 = $this->actingAs($driver)->postJson('/api/fuel-logs', [
+            'vehicle_id' => $vehicle->id,
+            'bitacora_id' => $bitacoraId,
+            'odometer_km' => 1000,
+            'gallons' => 10.0,
+            'cost_usd' => 30.00,
+            'fuel_type' => 'especial',
+            'station' => 'Puma Escalón',
+            'latitude' => 13.7021,
+            'longitude' => -89.2244,
+        ])->assertCreated();
+
+        $fuel1Id = $fuel1->json('id');
+        $fuel1->assertJsonPath('station', 'Puma Escalón');
+
+        // Adjunta factura electrónica PDF posteriormente cuando le llega al correo
+        $pdfInvoice = UploadedFile::fake()->create('factura-dte.pdf', 80, 'application/pdf');
+        $receiptUpload = $this->actingAs($driver)->post("/api/fuel-logs/{$fuel1Id}/receipt", [
+            'receipt' => $pdfInvoice,
+        ])->assertOk();
+
+        $receiptUpload->assertJsonPath('receipt_name', 'factura-dte.pdf');
+        Storage::disk('public')->assertExists($receiptUpload->json('receipt_path'));
+
+        // 3. Desde la gasolinera, el motorista inicia su asignación sin volver a la empresa
+        $started = $this->actingAs($driver)->postJson("/api/assignments/{$assignment->id}/start-from-fuel", [
+            'odometer_km' => 1002,
+            'fuel_level' => 'lleno',
+            'device_uuid' => 'android-driver-55',
+            'initial_latitude' => 13.7021,
+            'initial_longitude' => -89.2244,
+        ])->assertCreated();
+
+        $started->assertJsonPath('trip_category', 'asignacion');
+        $started->assertJsonPath('type', 'salida');
+        $started->assertJsonPath('assignment_id', $assignment->id);
+
+        // Segunda carga tras 150 km recorridos por $30.00 adicionales (Total: $60.00 en 150 km => $0.40/km) con foto adjunta al momento
+        $photo = UploadedFile::fake()->image('ticket.jpg');
+        $fuel2 = $this->actingAs($driver)->post('/api/fuel-logs', [
+            'vehicle_id' => $vehicle->id,
+            'odometer_km' => 1150,
+            'gallons' => 7.5,
+            'cost_usd' => 30.00,
+            'fuel_type' => 'especial',
+            'station' => 'Texaco Santa Tecla',
+            'latitude' => 13.6769,
+            'longitude' => -89.2797,
+            'receipt' => $photo,
+        ])->assertCreated();
+
+        Storage::disk('public')->assertExists($fuel2->json('receipt_path'));
+
+        // Resumen calcula km recorridos (150 km), $60.00 total y $0.40/km
+        $summary = $this->actingAs($dispatcher)
+            ->getJson('/api/fuel-logs/summary?range=week')
+            ->assertOk();
+
+        $summary->assertJsonPath('totals.km_traveled', 150);
+        $this->assertEquals(60.0, (float) $summary->json('totals.cost_usd'));
+        $this->assertEquals(0.4, (float) $summary->json('totals.cost_per_km'));
+        $summary->assertJsonPath('by_vehicle.0.license_plate', 'P888999');
     }
 }

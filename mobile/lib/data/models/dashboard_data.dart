@@ -16,6 +16,7 @@ class ActiveTripSummary {
     this.driverId,
     this.driverName,
     this.odometerKm,
+    this.tripCategory = 'asignacion',
   });
 
   final int vehicleId;
@@ -30,6 +31,9 @@ class ActiveTripSummary {
   final int? driverId;
   final String? driverName;
   final int? odometerKm;
+  final String tripCategory;
+
+  bool get isFuelTrip => tripCategory == 'combustible';
 
   factory ActiveTripSummary.fromJson(Map<String, dynamic> json) {
     return ActiveTripSummary(
@@ -45,6 +49,7 @@ class ActiveTripSummary {
       driverId: (json['driver_id'] as num?)?.toInt(),
       driverName: json['driver_name']?.toString(),
       odometerKm: (json['odometer_km'] as num?)?.toInt(),
+      tripCategory: (json['trip_category'] ?? 'asignacion').toString(),
     );
   }
 }

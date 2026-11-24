@@ -63,6 +63,7 @@
           >
             <option value="">Todas</option>
             <option value="asignacion">Asignación</option>
+            <option value="combustible">Combustible</option>
             <option value="personal">Personal</option>
             <option value="imprevisto">Imprevisto</option>
           </select>
@@ -130,7 +131,7 @@
                     <span class="text-[10px] font-medium text-gray-500 dark:text-gray-400">
                       {{ b.type === 'salida' ? 'Sal.' : 'Reg.' }}
                       <template v-if="b.trip_category && b.trip_category !== 'asignacion'">
-                        · {{ b.trip_category === 'personal' ? 'Pers.' : 'Impr.' }}
+                        · {{ b.trip_category === 'personal' ? 'Pers.' : b.trip_category === 'combustible' ? 'Gas.' : 'Impr.' }}
                       </template>
                     </span>
                   </div>
@@ -292,7 +293,7 @@
         <!-- Mode selector on Create -->
         <div v-if="!editingId" class="rounded-xl border border-gray-200/80 bg-gray-50/70 p-3 dark:border-white/[0.07] dark:bg-white/[0.02]">
           <p class="fleet-label mb-2">Tipo de registro</p>
-          <div :class="['grid gap-2', canManageFleet ? 'grid-cols-3' : 'grid-cols-2']">
+          <div :class="['grid gap-2', canManageFleet ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3']">
             <button
               type="button"
               :class="[
@@ -303,7 +304,19 @@
               ]"
               @click="setCreateMode('asignacion')"
             >
-              {{ canManageFleet ? 'Asignación / Regreso' : 'Asignación / Regreso' }}
+              Asignación / Regreso
+            </button>
+            <button
+              type="button"
+              :class="[
+                'rounded-xl border px-3 py-2 text-theme-xs font-semibold transition-colors',
+                createMode === 'combustible'
+                  ? 'border-amber-500 bg-amber-50 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300'
+                  : 'border-gray-200 bg-white text-gray-600 dark:border-white/10 dark:bg-[#0b1220] dark:text-gray-300',
+              ]"
+              @click="setCreateMode('combustible')"
+            >
+              Echar gasolina
             </button>
             <button
               type="button"
@@ -884,6 +897,9 @@ const setCreateMode = (mode) => {
   if (mode !== 'asignacion') {
     form.assignment_id = '';
     form.official_instruction = '';
+  }
+  if (mode === 'combustible' && !String(form.destination || '').trim()) {
+    form.destination = 'Gasolinera';
   }
 };
 

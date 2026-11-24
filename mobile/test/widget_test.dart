@@ -1,5 +1,6 @@
 import 'package:fleetlog_mobile/data/models/app_user.dart';
 import 'package:fleetlog_mobile/data/models/dashboard_data.dart';
+import 'package:fleetlog_mobile/data/models/maintenance_fuel_models.dart';
 import 'package:fleetlog_mobile/data/models/tracking_models.dart';
 import 'package:fleetlog_mobile/data/models/vehicle.dart';
 import 'package:fleetlog_mobile/data/repositories/auth_repository.dart';
@@ -200,5 +201,62 @@ void main() {
     expect(v.plateType, 'MI');
     expect(v.hasMaintenanceAlert, isTrue);
     expect(v.kmToMaintenance, 350);
+  });
+
+  test('FuelSummaryReport and FuelLogEntry parse GPS, receipt URL, and cost per km', () {
+    final report = FuelSummaryReport.fromJson({
+      'period': {'range': 'week', 'date_from': '2026-11-17', 'date_to': '2026-11-24'},
+      'totals': {
+        'km_traveled': 150,
+        'gallons': 17.5,
+        'cost_usd': 60.0,
+        'cost_per_km': 0.4,
+        'km_per_gallon': 8.57,
+        'refills_count': 2,
+      },
+      'by_vehicle': [
+        {
+          'vehicle_id': 7,
+          'license_plate': 'P888999',
+          'plate_type': 'P',
+          'plate_number': '888999',
+          'brand': 'Toyota',
+          'model': 'Hilux',
+          'km_traveled': 150,
+          'gallons': 17.5,
+          'cost_usd': 60.0,
+          'cost_per_km': 0.4,
+          'km_per_gallon': 8.57,
+          'refills_count': 2,
+        },
+      ],
+    });
+
+    expect(report.range, 'week');
+    expect(report.totals.kmTraveled, 150);
+    expect(report.totals.costPerKm, 0.4);
+    expect(report.byVehicle.first.licensePlate, 'P888999');
+
+    final entry = FuelLogEntry.fromJson({
+      'id': 21,
+      'vehicle_id': 7,
+      'bitacora_id': 4,
+      'odometer_km': 1150,
+      'gallons': 7.5,
+      'cost_usd': 30.0,
+      'fuel_type': 'especial',
+      'station': 'Texaco Santa Tecla',
+      'latitude': 13.6769,
+      'longitude': -89.2797,
+      'location_address': 'Carretera Panamericana, Santa Tecla',
+      'receipt_url': 'https://fleetlog.miascn.org/storage/fuel_receipts/ticket.jpg',
+      'receipt_name': 'ticket.jpg',
+      'filled_at': '2026-11-24T05:00:00Z',
+    });
+
+    expect(entry.hasGps, isTrue);
+    expect(entry.hasReceipt, isTrue);
+    expect(entry.receiptName, 'ticket.jpg');
+    expect(entry.station, 'Texaco Santa Tecla');
   });
 }
