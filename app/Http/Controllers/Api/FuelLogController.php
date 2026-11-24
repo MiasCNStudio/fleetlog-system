@@ -21,7 +21,7 @@ class FuelLogController extends Controller
     private function relations(): array
     {
         return [
-            'vehicle:id,license_plate,plate_type,plate_number,brand,model,current_odometer',
+            'vehicle:id,license_plate,plate_type,plate_number,brand,model,current_odometer,next_maintenance_odometer,maintenance_alert_before_km,maintenance_interval_km',
             'recorder:id,name',
             'driver:id,name,driver_code',
             'bitacora:id,type,trip_category,destination,recorded_at',

@@ -493,6 +493,7 @@ class FleetlogOperationsTest extends TestCase
         $dispatcher = User::factory()->create(['role' => User::ROLE_DISPATCHER]);
         $driver = User::factory()->create(['role' => User::ROLE_DRIVER, 'driver_code' => 'M-55']);
         $vehicle = Vehicle::create([
+            'license_plate' => 'P888999',
             'plate_type' => 'P',
             'plate_number' => '888999',
             'brand' => 'Toyota',
