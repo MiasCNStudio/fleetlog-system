@@ -15,3 +15,6 @@ storage/framework/views/*
 .phpunit.cache
 Thumbs.db
 .DS_Store
+mobile/
+*.apk
+*.aab
