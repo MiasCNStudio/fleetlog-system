@@ -8,6 +8,7 @@ use App\Http\Requests\UpdateBitacoraRequest;
 use App\Models\Assignment;
 use App\Models\Bitacora;
 use App\Models\Vehicle;
+use App\Services\SystemLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -43,6 +44,10 @@ class BitacoraController extends Controller
             $query->where('type', $request->query('type'));
         }
 
+        if ($request->filled('trip_category')) {
+            $query->where('trip_category', $request->query('trip_category'));
+        }
+
         if ($request->filled('date_from')) {
             $query->whereDate('recorded_at', '>=', $request->query('date_from'));
         }
@@ -75,7 +80,7 @@ class BitacoraController extends Controller
         $data = $request->validated();
         $authUser = $request->user();
 
-        $bitacora = DB::transaction(function () use ($data, $authUser) {
+        $bitacora = DB::transaction(function () use ($data, $authUser, $request) {
             /** @var Assignment|null $assignment */
             $assignment = null;
 
@@ -105,33 +110,49 @@ class BitacoraController extends Controller
                 ]);
             }
 
-            if ($type === Bitacora::TYPE_SALIDA && ! $assignment && ! $authUser->canManageFleet()) {
-                throw ValidationException::withMessages([
-                    'assignment_id' => ['Los motoristas deben iniciar una salida desde una asignación (o tomar una por emergencia).'],
-                ]);
-            }
+            $tripCategory = $data['trip_category'] ?? null;
 
-            if ($assignment) {
-                if ($type === Bitacora::TYPE_SALIDA && $assignment->status !== Assignment::STATUS_PENDING) {
-                    throw ValidationException::withMessages([
-                        'assignment_id' => ['Esta asignación ya tiene una salida en curso.'],
-                    ]);
-                }
+            if ($type === Bitacora::TYPE_SALIDA) {
+                if ($assignment) {
+                    $tripCategory = Bitacora::CATEGORY_ASSIGNMENT;
 
-                if (! $authUser->canManageFleet() && (int) $assignment->driver_id !== (int) $authUser->id) {
-                    throw ValidationException::withMessages([
-                        'assignment_id' => ['Esta asignación pertenece a otro motorista. Usa "Tomar por emergencia" con una razón justificada si debes cubrirla.'],
-                    ]);
+                    if ($assignment->status !== Assignment::STATUS_PENDING) {
+                        throw ValidationException::withMessages([
+                            'assignment_id' => ['Esta asignación ya tiene una salida en curso.'],
+                        ]);
+                    }
+
+                    if (! $authUser->canManageFleet() && (int) $assignment->driver_id !== (int) $authUser->id) {
+                        throw ValidationException::withMessages([
+                            'assignment_id' => ['Esta asignación pertenece a otro motorista. Usa "Tomar por emergencia" con una razón justificada si debes cubrirla.'],
+                        ]);
+                    }
+                } else {
+                    if ($tripCategory === Bitacora::CATEGORY_UNPLANNED) {
+                        if (! $authUser->canManageFleet()) {
+                            throw ValidationException::withMessages([
+                                'trip_category' => ['Solo el administrador o jefe de motoristas puede registrar un viaje imprevisto.'],
+                            ]);
+                        }
+                    } elseif ($tripCategory === Bitacora::CATEGORY_PERSONAL) {
+                        // Permitido para motoristas y jefes/admin, siempre con destino obligatorio
+                    } else {
+                        throw ValidationException::withMessages([
+                            'trip_category' => $authUser->canManageFleet()
+                                ? ['Selecciona una asignación o indica si la salida es Personal o Viaje imprevisto.']
+                                : ['Los motoristas solo pueden iniciar salidas desde una asignación (o registrar una salida Personal).'],
+                        ]);
+                    }
                 }
-            } elseif ($type === Bitacora::TYPE_REGRESO) {
-                // Vincular automáticamente el regreso con la asignación activa si la última salida tuvo una
+            } else {
+                // Regreso: vincular automáticamente con la última salida del vehículo
                 $lastSalida = $vehicle->bitacoras()
                     ->where('type', Bitacora::TYPE_SALIDA)
                     ->orderByDesc('recorded_at')
                     ->orderByDesc('id')
                     ->first();
 
-                if ($lastSalida?->assignment_id) {
+                if (! $assignment && $lastSalida?->assignment_id) {
                     $candidate = Assignment::query()->lockForUpdate()->find($lastSalida->assignment_id);
                     if ($candidate && $candidate->status === Assignment::STATUS_IN_PROGRESS) {
                         if (! $authUser->canManageFleet() && (int) $candidate->driver_id !== (int) $authUser->id) {
@@ -141,7 +162,22 @@ class BitacoraController extends Controller
                         }
                         $assignment = $candidate;
                     }
+                } elseif ($assignment && ! $authUser->canManageFleet() && $assignment->driver_id && (int) $assignment->driver_id !== (int) $authUser->id) {
+                    throw ValidationException::withMessages([
+                        'assignment_id' => ['Este viaje en curso pertenece a otro motorista.'],
+                    ]);
+                } elseif (! $assignment && $lastSalida && ! $authUser->canManageFleet()) {
+                    $ownerId = $lastSalida->driver_id ?? $lastSalida->user_id;
+                    if ($ownerId && (int) $ownerId !== (int) $authUser->id) {
+                        throw ValidationException::withMessages([
+                            'vehicle_id' => ['Este movimiento pertenece a otro usuario/motorista.'],
+                        ]);
+                    }
                 }
+
+                $tripCategory = $assignment
+                    ? Bitacora::CATEGORY_ASSIGNMENT
+                    : ($lastSalida?->trip_category ?? Bitacora::CATEGORY_ASSIGNMENT);
             }
 
             $destRaw = isset($data['destination']) ? trim((string) $data['destination']) : '';
@@ -184,12 +220,16 @@ class BitacoraController extends Controller
             $instrRaw = isset($data['official_instruction']) ? trim((string) $data['official_instruction']) : '';
             $officialInstruction = $instrRaw !== '' ? $instrRaw : $assignment?->official_instruction;
 
+            $notesRaw = isset($data['notes']) ? trim((string) $data['notes']) : '';
+            $notes = $notesRaw !== '' ? $notesRaw : null;
+
             $created = Bitacora::query()->create([
                 'vehicle_id' => $vehicle->id,
                 'user_id' => $authUser->id,
                 'driver_id' => $driverId,
                 'assignment_id' => $assignment?->id,
                 'type' => $type,
+                'trip_category' => $tripCategory,
                 'recorded_at' => now(),
                 'odometer_km' => $odometer,
                 'fuel_level' => $data['fuel_level'] ?? null,
@@ -200,6 +240,7 @@ class BitacoraController extends Controller
                 'place_id' => $placeId,
                 'companions' => $companions,
                 'official_instruction' => $officialInstruction,
+                'notes' => $notes,
             ]);
 
             if ($assignment) {
@@ -219,6 +260,37 @@ class BitacoraController extends Controller
             }
             $vehicle->save();
 
+            $actionName = match (true) {
+                $type === Bitacora::TYPE_SALIDA && $tripCategory === Bitacora::CATEGORY_PERSONAL => 'personal_trip',
+                $type === Bitacora::TYPE_SALIDA && $tripCategory === Bitacora::CATEGORY_UNPLANNED => 'unplanned_trip',
+                default => 'created',
+            };
+
+            $catLabel = match ($tripCategory) {
+                Bitacora::CATEGORY_PERSONAL => 'Personal',
+                Bitacora::CATEGORY_UNPLANNED => 'Viaje imprevisto',
+                default => 'Asignación',
+            };
+
+            SystemLogger::record(
+                $authUser,
+                'bitacoras',
+                $actionName,
+                "Registró {$type} ({$catLabel}) en {$vehicle->license_plate}".($destination ? " hacia {$destination}" : ''),
+                $created,
+                [
+                    'vehicle_plate' => $vehicle->license_plate,
+                    'type' => $type,
+                    'trip_category' => $tripCategory,
+                    'assignment_id' => $assignment?->id,
+                    'driver_id' => $driverId,
+                    'odometer_km' => $odometer,
+                    'destination' => $destination,
+                    'notes' => $notes,
+                ],
+                $request,
+            );
+
             return $created;
         });
 
@@ -235,11 +307,24 @@ class BitacoraController extends Controller
         $bitacora->fill($request->validated());
         $bitacora->save();
 
+        SystemLogger::record(
+            $request->user(),
+            'bitacoras',
+            'updated',
+            "Editó la bitácora #{$bitacora->id}",
+            $bitacora,
+            ['changes' => $bitacora->getChanges()],
+            $request,
+        );
+
         return response()->json($bitacora->load($this->relations()));
     }
 
-    public function destroy(Bitacora $bitacora): JsonResponse
+    public function destroy(Request $request, Bitacora $bitacora): JsonResponse
     {
+        $plate = $bitacora->vehicle?->license_plate ?? '';
+        $bitacoraId = $bitacora->id;
+
         DB::transaction(function () use ($bitacora) {
             $vehicle = $bitacora->vehicle()->lockForUpdate()->first();
             $bitacora->delete();
@@ -252,6 +337,16 @@ class BitacoraController extends Controller
                 $vehicle->save();
             }
         });
+
+        SystemLogger::record(
+            $request->user(),
+            'bitacoras',
+            'deleted',
+            "Eliminó la bitácora #{$bitacoraId}".($plate ? " ({$plate})" : ''),
+            null,
+            ['bitacora_id' => $bitacoraId, 'vehicle_plate' => $plate],
+            $request,
+        );
 
         return response()->json(null, 204);
     }

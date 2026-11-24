@@ -21,265 +21,313 @@
         </span>
       </template>
 
-      <div class="fleet-filter-bar space-y-3">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <div class="inline-flex flex-wrap rounded-xl border border-gray-200 bg-white p-1 dark:border-white/10 dark:bg-[#0b1220]" role="group" aria-label="Rango rápido de fechas">
-            <button
-              v-for="preset in datePresets"
-              :key="preset.key"
-              type="button"
-              :aria-pressed="activePreset === preset.key"
-              :class="[
-                'rounded-lg px-3 py-1.5 text-theme-xs font-semibold transition-colors',
-                activePreset === preset.key
-                  ? 'bg-brand-500 text-white shadow-theme-xs'
-                  : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white',
-              ]"
-              @click="applyDatePreset(preset.key)"
-            >
-              {{ preset.label }}
-            </button>
-          </div>
-
-          <label class="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-theme-xs font-medium text-gray-700 dark:border-white/10 dark:bg-[#0b1220] dark:text-gray-200">
-            <input
-              v-model="filterMine"
-              type="checkbox"
-              class="size-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500"
-              @change="loadAssignments(1)"
-            />
-            Solo mis viajes
-          </label>
+      <!-- Compact filter bar: quick presets + Filters modal trigger -->
+      <div class="fleet-filter-bar flex flex-wrap items-center justify-between gap-2.5">
+        <div
+          class="inline-flex flex-wrap rounded-xl border border-gray-200 bg-white p-1 dark:border-white/10 dark:bg-[#0b1220]"
+          role="group"
+          aria-label="Rango rápido de fechas"
+        >
+          <button
+            v-for="preset in datePresets"
+            :key="preset.key"
+            type="button"
+            :aria-pressed="activePreset === preset.key"
+            :class="[
+              'rounded-lg px-2.5 py-1.5 text-theme-xs font-semibold transition-colors sm:px-3',
+              activePreset === preset.key
+                ? 'bg-brand-500 text-white shadow-theme-xs'
+                : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white',
+            ]"
+            @click="applyDatePreset(preset.key)"
+          >
+            {{ preset.label }}
+          </button>
         </div>
 
-        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <div>
-            <label for="assign-date-from" class="fleet-label">Desde</label>
-            <input
-              id="assign-date-from"
-              v-model="filterDateFrom"
-              type="date"
-              class="fleet-input"
-              @change="onManualDateChange"
-            />
-          </div>
-          <div>
-            <label for="assign-date-to" class="fleet-label">Hasta</label>
-            <input
-              id="assign-date-to"
-              v-model="filterDateTo"
-              type="date"
-              class="fleet-input"
-              @change="onManualDateChange"
-            />
-          </div>
-          <div>
-            <label for="assign-filter-driver" class="fleet-label">Motorista</label>
-            <select
-              id="assign-filter-driver"
-              v-model="filterDriverId"
-              class="fleet-select"
-              @change="loadAssignments(1)"
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            class="fleet-btn-secondary h-9 px-3 py-1.5 text-theme-xs"
+            @click="openFilterModal"
+          >
+            <svg class="size-4 text-gray-500 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
+            </svg>
+            <span>Filtros</span>
+            <span
+              v-if="activeFilterCount > 0"
+              class="inline-flex size-5 items-center justify-center rounded-full bg-brand-500 text-[11px] font-bold text-white"
             >
-              <option value="">Todos</option>
-              <option v-for="d in driverOptions" :key="d.id" :value="String(d.id)">
-                {{ d.name }} {{ d.driver_code ? `(${d.driver_code})` : '' }}
-              </option>
-            </select>
-          </div>
-          <div>
-            <label for="assign-filter-vehicle" class="fleet-label">Vehículo</label>
-            <select
-              id="assign-filter-vehicle"
-              v-model="filterVehicleId"
-              class="fleet-select"
-              @change="loadAssignments(1)"
-            >
-              <option value="">Todos</option>
-              <option v-for="v in vehicleOptions" :key="v.id" :value="String(v.id)">
-                {{ v.license_plate }} — {{ v.brand }} {{ v.model }}
-              </option>
-            </select>
-          </div>
-          <div>
-            <label for="assign-filter-status" class="fleet-label">Estado</label>
-            <select
-              id="assign-filter-status"
-              v-model="filterStatus"
-              class="fleet-select"
-              @change="loadAssignments(1)"
-            >
-              <option value="">Todos</option>
-              <option value="pendiente">Pendiente</option>
-              <option value="en_curso">En curso</option>
-              <option value="completada">Completada</option>
-              <option value="cancelada">Cancelada</option>
-            </select>
-          </div>
-        </div>
+              {{ activeFilterCount }}
+            </span>
+          </button>
 
-        <div v-if="hasFilters" class="flex justify-end">
-          <button type="button" class="fleet-btn-secondary h-9 px-3 py-1 text-theme-xs" @click="resetFilters">
-            Limpiar filtros
+          <button
+            v-if="hasFilters"
+            type="button"
+            class="fleet-btn-secondary h-9 px-2.5 py-1.5 text-theme-xs"
+            @click="resetFilters"
+          >
+            Limpiar
           </button>
         </div>
       </div>
 
-      <div class="fleet-table-wrap">
-        <div class="max-w-full overflow-x-auto">
-          <table class="w-full divide-y divide-gray-200 dark:divide-gray-800">
-            <thead>
-              <tr>
-                <th scope="col" class="fleet-th">Fecha / Hora</th>
-                <th scope="col" class="fleet-th">Vehículo</th>
-                <th scope="col" class="fleet-th">Motorista</th>
-                <th scope="col" class="fleet-th">Destino</th>
-                <th scope="col" class="fleet-th">Instrucción / Motivo</th>
-                <th scope="col" class="fleet-th">Estado</th>
-                <th scope="col" class="fleet-th text-right">Acciones</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
-              <tr v-if="loading" v-for="n in 5" :key="`sk-${n}`" class="animate-pulse">
-                <td v-for="c in 7" :key="c" class="fleet-td">
-                  <div class="h-4 w-full max-w-[110px] rounded bg-gray-200 dark:bg-gray-800" />
-                </td>
-              </tr>
+      <!-- Loading & Empty state -->
+      <div v-if="loading" class="space-y-3">
+        <div v-for="n in 4" :key="`sk-${n}`" class="h-20 animate-pulse rounded-xl bg-gray-100 dark:bg-gray-800/70" />
+      </div>
 
-              <tr v-else-if="assignments.length === 0">
-                <td colspan="7" class="p-0">
-                  <TableEmptyState
-                    icon="clipboard"
-                    :has-filters="hasFilters"
-                    :title="hasFilters ? 'Sin asignaciones para estos filtros' : 'No hay viajes programados'"
-                    :description="
-                      hasFilters
-                        ? 'Prueba ampliando el rango de fechas o quitando filtros.'
-                        : canManageFleet
-                          ? 'Agenda asignaciones diarias, semanales o mensuales para los motoristas.'
-                          : 'Cuando te asignen un viaje aparecerá aquí con su ruta e instrucciones.'
-                    "
-                    @reset="resetFilters"
-                  />
-                </td>
-              </tr>
+      <div v-else-if="assignments.length === 0" class="fleet-table-wrap">
+        <TableEmptyState
+          icon="clipboard"
+          :has-filters="hasFilters"
+          :title="hasFilters ? 'Sin asignaciones para estos filtros' : 'No hay viajes programados'"
+          :description="
+            hasFilters
+              ? 'Prueba ampliando el rango de fechas o limpiando los filtros.'
+              : canManageFleet
+                ? 'Agenda asignaciones diarias, semanales o mensuales para los motoristas.'
+                : 'Cuando te asignen un viaje aparecerá aquí con su ruta e instrucciones.'
+          "
+          @reset="resetFilters"
+        />
+      </div>
 
-              <tr v-for="a in assignments" v-else :key="a.id" class="fleet-tr">
-                <td class="fleet-td whitespace-nowrap tabular-nums">
-                  <p class="font-medium text-gray-900 dark:text-white">{{ formatDate(a.scheduled_date) }}</p>
-                  <p class="text-theme-xs text-gray-500 dark:text-gray-400">
-                    {{ a.scheduled_time || 'Hora abierta' }}
-                  </p>
-                </td>
-                <td class="fleet-td whitespace-nowrap">
-                  <span class="rounded-md bg-gray-100 px-2 py-0.5 font-mono text-theme-xs font-semibold text-gray-900 dark:bg-gray-800 dark:text-white">
-                    {{ a.vehicle?.license_plate }}
-                  </span>
-                  <p class="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">
-                    {{ a.vehicle?.brand }} {{ a.vehicle?.model }}
-                  </p>
-                </td>
-                <td class="fleet-td">
-                  <div class="space-y-1">
-                    <p class="font-medium text-gray-900 dark:text-white">
-                      {{ a.driver?.name || '—' }}
+      <template v-else>
+        <!-- Mobile Cards (< md) -->
+        <div class="space-y-3 md:hidden">
+          <article
+            v-for="a in assignments"
+            :key="`mob-${a.id}`"
+            class="rounded-2xl border border-gray-200/80 bg-white p-4 shadow-theme-xs dark:border-white/[0.08] dark:bg-[#0b1220]/70"
+          >
+            <div class="flex items-start justify-between gap-2">
+              <div>
+                <p class="text-theme-xs font-semibold tabular-nums text-gray-500 dark:text-gray-400">
+                  {{ formatDate(a.scheduled_date) }} · {{ a.scheduled_time || 'Hora abierta' }}
+                </p>
+                <h4 class="mt-0.5 text-theme-sm font-semibold text-gray-900 dark:text-white">
+                  {{ a.destination }}
+                </h4>
+              </div>
+              <StatusBadge kind="assignmentStatus" :value="a.status" />
+            </div>
+
+            <div class="mt-2.5 flex flex-wrap items-center gap-2 text-theme-xs">
+              <span class="rounded-md bg-gray-100 px-2 py-0.5 font-mono font-semibold text-gray-900 dark:bg-gray-800 dark:text-white">
+                {{ a.vehicle?.license_plate }}
+              </span>
+              <span class="text-gray-600 dark:text-gray-300">{{ a.driver?.name || '—' }}</span>
+              <span
+                v-if="a.is_emergency_reassigned"
+                class="rounded-full bg-rose-500/15 px-2 py-0.5 text-[10px] font-semibold text-rose-700 dark:text-rose-300"
+              >
+                Emergencia
+              </span>
+            </div>
+
+            <div
+              v-if="a.official_instruction"
+              class="mt-2.5 rounded-xl border border-amber-300/70 bg-amber-50/80 px-3 py-2 text-theme-xs text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100"
+            >
+              <span class="font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300">Instrucción: </span>
+              {{ a.official_instruction }}
+            </div>
+
+            <div class="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-3 dark:border-white/[0.06]">
+              <div class="flex items-center gap-2">
+                <a
+                  :href="gmapsLink(a)"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="fleet-btn-secondary h-8 px-2.5 py-1 text-[11px]"
+                >
+                  Maps ↗
+                </a>
+                <a
+                  :href="wazeLink(a)"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="fleet-btn-secondary h-8 px-2.5 py-1 text-[11px]"
+                >
+                  Waze ↗
+                </a>
+              </div>
+
+              <div class="flex flex-wrap items-center gap-1.5">
+                <button
+                  v-if="canStartAssignment(a)"
+                  type="button"
+                  class="fleet-btn-primary h-8 px-3 py-1 text-theme-xs"
+                  @click="openTripModal(a, 'salida')"
+                >
+                  Iniciar
+                </button>
+                <button
+                  v-else-if="canReturnAssignment(a)"
+                  type="button"
+                  class="inline-flex h-8 items-center rounded-xl bg-emerald-600 px-3 text-theme-xs font-semibold text-white"
+                  @click="openTripModal(a, 'regreso')"
+                >
+                  Regreso
+                </button>
+                <button
+                  v-if="canEmergencyTake(a)"
+                  type="button"
+                  class="inline-flex h-8 items-center rounded-xl bg-amber-500/20 px-2.5 text-theme-xs font-semibold text-amber-900 dark:text-amber-200"
+                  @click="openEmergencyModal(a)"
+                >
+                  Emergencia
+                </button>
+
+                <TableRowActions
+                  :group-label="`Acciones asignación ${a.id}`"
+                  :show-edit="canManageFleet"
+                  :show-delete="canManageFleet"
+                  @view="openView(a)"
+                  @edit="openEdit(a)"
+                  @delete="confirmDelete(a)"
+                />
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <!-- Desktop Table (>= md) -->
+        <div class="fleet-table-wrap hidden md:block">
+          <div class="max-w-full overflow-x-auto">
+            <table class="w-full divide-y divide-gray-200 dark:divide-gray-800">
+              <thead>
+                <tr>
+                  <th scope="col" class="fleet-th">Fecha / Hora</th>
+                  <th scope="col" class="fleet-th">Vehículo</th>
+                  <th scope="col" class="fleet-th">Motorista</th>
+                  <th scope="col" class="fleet-th">Destino</th>
+                  <th scope="col" class="fleet-th">Instrucción / Motivo</th>
+                  <th scope="col" class="fleet-th">Estado</th>
+                  <th scope="col" class="fleet-th text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                <tr v-for="a in assignments" :key="a.id" class="fleet-tr">
+                  <td class="fleet-td whitespace-nowrap tabular-nums">
+                    <p class="font-medium text-gray-900 dark:text-white">{{ formatDate(a.scheduled_date) }}</p>
+                    <p class="text-theme-xs text-gray-500 dark:text-gray-400">
+                      {{ a.scheduled_time || 'Hora abierta' }}
                     </p>
-                    <div v-if="a.is_emergency_reassigned" class="flex flex-wrap items-center gap-1">
-                      <span
-                        class="inline-flex items-center gap-1 rounded-full bg-rose-500/15 px-2 py-0.5 text-[11px] font-semibold text-rose-700 ring-1 ring-inset ring-rose-500/20 dark:text-rose-300"
-                        :title="a.reassignment_reason || ''"
+                  </td>
+                  <td class="fleet-td whitespace-nowrap">
+                    <span class="rounded-md bg-gray-100 px-2 py-0.5 font-mono text-theme-xs font-semibold text-gray-900 dark:bg-gray-800 dark:text-white">
+                      {{ a.vehicle?.license_plate }}
+                    </span>
+                    <p class="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">
+                      {{ a.vehicle?.brand }} {{ a.vehicle?.model }}
+                    </p>
+                  </td>
+                  <td class="fleet-td">
+                    <div class="space-y-1">
+                      <p class="font-medium text-gray-900 dark:text-white">
+                        {{ a.driver?.name || '—' }}
+                      </p>
+                      <div v-if="a.is_emergency_reassigned" class="flex flex-wrap items-center gap-1">
+                        <span
+                          class="inline-flex items-center gap-1 rounded-full bg-rose-500/15 px-2 py-0.5 text-[11px] font-semibold text-rose-700 ring-1 ring-inset ring-rose-500/20 dark:text-rose-300"
+                          :title="a.reassignment_reason || ''"
+                        >
+                          Emergencia
+                        </span>
+                        <span v-if="a.original_driver?.name" class="text-[11px] text-gray-500 dark:text-gray-400">
+                          por {{ a.original_driver.name }}
+                        </span>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="fleet-td max-w-[180px]">
+                    <p class="truncate font-medium text-gray-900 dark:text-white" :title="a.destination">
+                      {{ a.destination }}
+                    </p>
+                    <div class="mt-1 flex flex-wrap items-center gap-2 text-[11px]">
+                      <a
+                        :href="gmapsLink(a)"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="font-medium text-brand-600 hover:underline dark:text-brand-400"
+                      >
+                        Maps ↗
+                      </a>
+                      <a
+                        :href="wazeLink(a)"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="font-medium text-sky-600 hover:underline dark:text-sky-400"
+                      >
+                        Waze ↗
+                      </a>
+                    </div>
+                  </td>
+                  <td class="fleet-td max-w-[190px]">
+                    <div v-if="a.official_instruction" class="mb-1">
+                      <span class="inline-flex items-center gap-1 rounded-md bg-amber-500/15 px-1.5 py-0.5 text-[11px] font-semibold text-amber-800 dark:text-amber-300">
+                        Instrucción oficial
+                      </span>
+                      <p class="mt-0.5 truncate text-theme-xs font-medium text-gray-800 dark:text-gray-200" :title="a.official_instruction">
+                        {{ a.official_instruction }}
+                      </p>
+                    </div>
+                    <p v-if="a.description" class="truncate text-theme-xs text-gray-500 dark:text-gray-400" :title="a.description">
+                      {{ a.description }}
+                    </p>
+                    <span v-if="!a.official_instruction && !a.description" class="text-theme-xs text-gray-400">—</span>
+                  </td>
+                  <td class="fleet-td whitespace-nowrap">
+                    <StatusBadge kind="assignmentStatus" :value="a.status" />
+                  </td>
+                  <td class="fleet-td whitespace-nowrap text-right">
+                    <div class="inline-flex items-center justify-end gap-1">
+                      <button
+                        v-if="canStartAssignment(a)"
+                        type="button"
+                        class="inline-flex h-8 items-center gap-1 rounded-lg bg-brand-500/10 px-2.5 text-theme-xs font-semibold text-brand-600 transition-colors hover:bg-brand-500/20 dark:text-brand-300"
+                        title="Iniciar viaje en bitácora"
+                        @click="openTripModal(a, 'salida')"
+                      >
+                        Iniciar
+                      </button>
+                      <button
+                        v-else-if="canReturnAssignment(a)"
+                        type="button"
+                        class="inline-flex h-8 items-center gap-1 rounded-lg bg-emerald-500/15 px-2.5 text-theme-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-500/25 dark:text-emerald-300"
+                        title="Registrar regreso"
+                        @click="openTripModal(a, 'regreso')"
+                      >
+                        Regreso
+                      </button>
+                      <button
+                        v-if="canEmergencyTake(a)"
+                        type="button"
+                        class="inline-flex h-8 items-center gap-1 rounded-lg bg-amber-500/15 px-2.5 text-theme-xs font-semibold text-amber-800 transition-colors hover:bg-amber-500/25 dark:text-amber-300"
+                        title="Tomar asignación por emergencia"
+                        @click="openEmergencyModal(a)"
                       >
                         Emergencia
-                      </span>
-                      <span v-if="a.original_driver?.name" class="text-[11px] text-gray-500 dark:text-gray-400">
-                        por {{ a.original_driver.name }}
-                      </span>
-                    </div>
-                  </div>
-                </td>
-                <td class="fleet-td max-w-[180px]">
-                  <p class="truncate font-medium text-gray-900 dark:text-white" :title="a.destination">
-                    {{ a.destination }}
-                  </p>
-                  <div class="mt-1 flex flex-wrap items-center gap-2 text-[11px]">
-                    <a
-                      :href="gmapsLink(a)"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      class="font-medium text-brand-600 hover:underline dark:text-brand-400"
-                    >
-                      Maps ↗
-                    </a>
-                    <a
-                      :href="wazeLink(a)"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      class="font-medium text-sky-600 hover:underline dark:text-sky-400"
-                    >
-                      Waze ↗
-                    </a>
-                  </div>
-                </td>
-                <td class="fleet-td max-w-[190px]">
-                  <div v-if="a.official_instruction" class="mb-1">
-                    <span class="inline-flex items-center gap-1 rounded-md bg-amber-500/15 px-1.5 py-0.5 text-[11px] font-semibold text-amber-800 dark:text-amber-300">
-                      Instrucción oficial
-                    </span>
-                    <p class="mt-0.5 truncate text-theme-xs font-medium text-gray-800 dark:text-gray-200" :title="a.official_instruction">
-                      {{ a.official_instruction }}
-                    </p>
-                  </div>
-                  <p v-if="a.description" class="truncate text-theme-xs text-gray-500 dark:text-gray-400" :title="a.description">
-                    {{ a.description }}
-                  </p>
-                  <span v-if="!a.official_instruction && !a.description" class="text-theme-xs text-gray-400">—</span>
-                </td>
-                <td class="fleet-td whitespace-nowrap">
-                  <StatusBadge kind="assignmentStatus" :value="a.status" />
-                </td>
-                <td class="fleet-td whitespace-nowrap text-right">
-                  <div class="inline-flex items-center justify-end gap-1">
-                    <button
-                      v-if="canStartAssignment(a)"
-                      type="button"
-                      class="inline-flex h-8 items-center gap-1 rounded-lg bg-brand-500/10 px-2.5 text-theme-xs font-semibold text-brand-600 transition-colors hover:bg-brand-500/20 dark:text-brand-300"
-                      title="Iniciar viaje en bitácora"
-                      @click="openTripModal(a, 'salida')"
-                    >
-                      Iniciar
-                    </button>
-                    <button
-                      v-else-if="canReturnAssignment(a)"
-                      type="button"
-                      class="inline-flex h-8 items-center gap-1 rounded-lg bg-emerald-500/15 px-2.5 text-theme-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-500/25 dark:text-emerald-300"
-                      title="Registrar regreso"
-                      @click="openTripModal(a, 'regreso')"
-                    >
-                      Regreso
-                    </button>
-                    <button
-                      v-if="canEmergencyTake(a)"
-                      type="button"
-                      class="inline-flex h-8 items-center gap-1 rounded-lg bg-amber-500/15 px-2.5 text-theme-xs font-semibold text-amber-800 transition-colors hover:bg-amber-500/25 dark:text-amber-300"
-                      title="Tomar asignación por emergencia"
-                      @click="openEmergencyModal(a)"
-                    >
-                      Emergencia
-                    </button>
+                      </button>
 
-                    <TableRowActions
-                      :group-label="`Acciones asignación ${a.id}`"
-                      :show-edit="canManageFleet"
-                      :show-delete="canManageFleet"
-                      @view="openView(a)"
-                      @edit="openEdit(a)"
-                      @delete="confirmDelete(a)"
-                    />
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                      <TableRowActions
+                        :group-label="`Acciones asignación ${a.id}`"
+                        :show-edit="canManageFleet"
+                        :show-delete="canManageFleet"
+                        @view="openView(a)"
+                        @edit="openEdit(a)"
+                        @delete="confirmDelete(a)"
+                      />
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <TablePagination
@@ -290,9 +338,81 @@
           :to="meta.to"
           @change="changePage"
         />
-      </div>
+      </template>
     </ComponentCard>
 
+    <!-- Filters Modal -->
+    <BaseModal
+      :open="filterModalOpen"
+      title="Filtrar asignaciones"
+      subtitle="Elige los criterios y presiona aplicar para actualizar la agenda."
+      @close="filterModalOpen = false"
+    >
+      <form id="assign-filters-form" class="space-y-4" @submit.prevent="applyFilterModal">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label for="modal-filter-from" class="fleet-field-label">Desde</label>
+            <input id="modal-filter-from" v-model="draftFilters.dateFrom" type="date" class="fleet-input" />
+          </div>
+          <div>
+            <label for="modal-filter-to" class="fleet-field-label">Hasta</label>
+            <input id="modal-filter-to" v-model="draftFilters.dateTo" type="date" class="fleet-input" />
+          </div>
+        </div>
+
+        <div>
+          <label for="modal-filter-driver" class="fleet-field-label">Motorista</label>
+          <select id="modal-filter-driver" v-model="draftFilters.driverId" class="fleet-select">
+            <option value="">Todos los motoristas</option>
+            <option v-for="d in driverOptions" :key="d.id" :value="String(d.id)">
+              {{ d.name }} {{ d.driver_code ? `(${d.driver_code})` : '' }}
+            </option>
+          </select>
+        </div>
+
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label for="modal-filter-vehicle" class="fleet-field-label">Vehículo</label>
+            <select id="modal-filter-vehicle" v-model="draftFilters.vehicleId" class="fleet-select">
+              <option value="">Todos los vehículos</option>
+              <option v-for="v in vehicleOptions" :key="v.id" :value="String(v.id)">
+                {{ v.license_plate }} — {{ v.brand }} {{ v.model }}
+              </option>
+            </select>
+          </div>
+          <div>
+            <label for="modal-filter-status" class="fleet-field-label">Estado</label>
+            <select id="modal-filter-status" v-model="draftFilters.status" class="fleet-select">
+              <option value="">Todos</option>
+              <option value="pendiente">Pendiente</option>
+              <option value="en_curso">En curso</option>
+              <option value="completada">Completada</option>
+              <option value="cancelada">Cancelada</option>
+            </select>
+          </div>
+        </div>
+
+        <label class="flex cursor-pointer items-center gap-2.5 rounded-xl border border-gray-200/80 bg-gray-50/70 px-3.5 py-2.5 text-theme-sm font-medium text-gray-700 dark:border-white/10 dark:bg-white/[0.02] dark:text-gray-200">
+          <input
+            v-model="draftFilters.mine"
+            type="checkbox"
+            class="size-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500"
+          />
+          Mostrar solo mis viajes asignados
+        </label>
+      </form>
+
+      <template #footer>
+        <button type="button" class="fleet-btn-secondary" @click="clearFilterModal">
+          Limpiar todo
+        </button>
+        <button type="submit" form="assign-filters-form" class="fleet-btn-primary">
+          Aplicar filtros
+        </button>
+      </template>
+    </BaseModal>
+
+    <!-- Create / Edit Assignment Modal -->
     <BaseModal
       :open="modalOpen"
       max-width="xl"
@@ -478,6 +598,7 @@
       </template>
     </BaseModal>
 
+    <!-- Detail Modal -->
     <BaseModal
       :open="detailOpen"
       max-width="xl"
@@ -587,6 +708,7 @@
       </template>
     </BaseModal>
 
+    <!-- Trip Execution Modal -->
     <BaseModal
       :open="tripModalOpen"
       :title="tripType === 'salida' ? 'Iniciar viaje asignado' : 'Registrar regreso de unidad'"
@@ -650,6 +772,7 @@
       </template>
     </BaseModal>
 
+    <!-- Emergency Reassign Modal -->
     <BaseModal
       :open="emergencyOpen"
       title="Tomar asignación por emergencia"
@@ -732,6 +855,16 @@ const filterVehicleId = ref('');
 const filterStatus = ref('');
 const filterMine = ref(false);
 
+const filterModalOpen = ref(false);
+const draftFilters = reactive({
+  dateFrom: '',
+  dateTo: '',
+  driverId: '',
+  vehicleId: '',
+  status: '',
+  mine: false,
+});
+
 const modalOpen = ref(false);
 const editingId = ref(null);
 const scheduleMode = ref('single');
@@ -771,8 +904,8 @@ const form = reactive({
 
 const datePresets = [
   { key: 'today', label: 'Hoy' },
-  { key: 'week', label: 'Esta semana' },
-  { key: 'month', label: 'Este mes' },
+  { key: 'week', label: 'Semana' },
+  { key: 'month', label: 'Mes' },
   { key: 'all', label: 'Todas' },
 ];
 
@@ -786,16 +919,17 @@ const weekdayChoices = [
   { value: 0, label: 'Dom' },
 ];
 
-const hasFilters = computed(() =>
-  Boolean(
-    filterDateFrom.value ||
-      filterDateTo.value ||
-      filterDriverId.value ||
-      filterVehicleId.value ||
-      filterStatus.value ||
-      filterMine.value,
-  ),
-);
+const activeFilterCount = computed(() => {
+  let count = 0;
+  if (filterDateFrom.value || filterDateTo.value) count += 1;
+  if (filterDriverId.value) count += 1;
+  if (filterVehicleId.value) count += 1;
+  if (filterStatus.value) count += 1;
+  if (filterMine.value) count += 1;
+  return count;
+});
+
+const hasFilters = computed(() => activeFilterCount.value > 0);
 
 const plannedDaysCount = computed(() => {
   if (!form.date_from || !form.date_to) return 0;
@@ -849,6 +983,38 @@ const canReturnAssignment = (a) =>
 const canEmergencyTake = (a) =>
   a.status === 'pendiente' && Number(a.driver_id) !== Number(currentUser.value?.id);
 
+const openFilterModal = () => {
+  draftFilters.dateFrom = filterDateFrom.value;
+  draftFilters.dateTo = filterDateTo.value;
+  draftFilters.driverId = filterDriverId.value;
+  draftFilters.vehicleId = filterVehicleId.value;
+  draftFilters.status = filterStatus.value;
+  draftFilters.mine = filterMine.value;
+  filterModalOpen.value = true;
+};
+
+const applyFilterModal = () => {
+  filterDateFrom.value = draftFilters.dateFrom;
+  filterDateTo.value = draftFilters.dateTo;
+  filterDriverId.value = draftFilters.driverId;
+  filterVehicleId.value = draftFilters.vehicleId;
+  filterStatus.value = draftFilters.status;
+  filterMine.value = draftFilters.mine;
+  activePreset.value = filterDateFrom.value || filterDateTo.value ? 'custom' : 'all';
+  filterModalOpen.value = false;
+  loadAssignments(1);
+};
+
+const clearFilterModal = () => {
+  draftFilters.dateFrom = '';
+  draftFilters.dateTo = '';
+  draftFilters.driverId = '';
+  draftFilters.vehicleId = '';
+  draftFilters.status = '';
+  draftFilters.mine = false;
+  applyFilterModal();
+};
+
 const applyDatePreset = (key) => {
   activePreset.value = key;
   const now = new Date();
@@ -877,11 +1043,6 @@ const applyDatePreset = (key) => {
     filterDateTo.value = '';
   }
 
-  loadAssignments(1);
-};
-
-const onManualDateChange = () => {
-  activePreset.value = 'custom';
   loadAssignments(1);
 };
 

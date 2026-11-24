@@ -1,6 +1,6 @@
 <template>
   <AdminLayout header-title="Bitácora" :user-name="currentUser?.name" @logout="logout(true)">
-    <PageBreadcrumb page-title="Bitácora" subtitle="Registro de salidas, regresos, odómetro, combustible y ubicación exacta.">
+    <PageBreadcrumb page-title="Bitácora" subtitle="Movimientos personales, asignaciones iniciadas e imprevistos.">
       <template #actions>
         <div class="flex flex-wrap items-center gap-2">
           <router-link to="/asignaciones" class="fleet-btn-secondary">
@@ -10,13 +10,13 @@
             <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
             </svg>
-            Nueva bitácora
+            {{ canManageFleet ? 'Nueva bitácora' : 'Bitácora personal / regreso' }}
           </button>
         </div>
       </template>
     </PageBreadcrumb>
 
-    <ComponentCard title="Movimientos" desc="Salida y regreso según el último registro de cada vehículo.">
+    <ComponentCard title="Movimientos" desc="Historial de salidas, regresos, viajes personales e imprevistos.">
       <template #header-extra>
         <span class="rounded-lg bg-gray-100 px-2.5 py-1 text-theme-xs font-semibold tabular-nums text-gray-600 dark:bg-gray-800 dark:text-gray-300">
           {{ meta.total }} {{ meta.total === 1 ? 'registro' : 'registros' }}
@@ -24,7 +24,7 @@
       </template>
 
       <div class="fleet-filter-bar grid grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:items-end">
-        <div class="w-full sm:w-64">
+        <div class="w-full sm:w-56">
           <label for="bitacora-filter-vehicle" class="fleet-label">Vehículo</label>
           <select
             id="bitacora-filter-vehicle"
@@ -39,7 +39,7 @@
           </select>
         </div>
 
-        <div class="w-full sm:w-44">
+        <div class="w-full sm:w-40">
           <label for="bitacora-filter-type" class="fleet-label">Tipo</label>
           <select
             id="bitacora-filter-type"
@@ -50,6 +50,21 @@
             <option value="">Todos</option>
             <option value="salida">Salidas</option>
             <option value="regreso">Regresos</option>
+          </select>
+        </div>
+
+        <div class="w-full sm:w-44">
+          <label for="bitacora-filter-category" class="fleet-label">Categoría</label>
+          <select
+            id="bitacora-filter-category"
+            v-model="filterCategory"
+            class="fleet-select"
+            @change="loadBitacoras(1)"
+          >
+            <option value="">Todas</option>
+            <option value="asignacion">Asignación</option>
+            <option value="personal">Personal</option>
+            <option value="imprevisto">Imprevisto</option>
           </select>
         </div>
 
@@ -64,7 +79,82 @@
       </div>
 
       <div class="fleet-table-wrap">
-        <div class="max-w-full overflow-x-auto">
+        <!-- Mobile compact table (< md): Fecha/Hora, Vehículo, Conductor, Ver -->
+        <div class="md:hidden">
+          <table class="w-full divide-y divide-gray-200 dark:divide-gray-800">
+            <thead>
+              <tr>
+                <th scope="col" class="fleet-th px-2.5">Fecha</th>
+                <th scope="col" class="fleet-th px-2">Vehículo</th>
+                <th scope="col" class="fleet-th px-2">Conductor</th>
+                <th scope="col" class="fleet-th px-2.5 text-right">Ver</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+              <tr v-if="loading" v-for="n in 4" :key="`msk-${n}`" class="animate-pulse">
+                <td v-for="c in 4" :key="c" class="px-2.5 py-3">
+                  <div class="h-4 w-full rounded bg-gray-200 dark:bg-gray-800" />
+                </td>
+              </tr>
+
+              <tr v-else-if="bitacoras.length === 0">
+                <td colspan="4" class="p-0">
+                  <TableEmptyState
+                    icon="clipboard"
+                    :has-filters="hasFilters"
+                    :title="hasFilters ? 'Sin movimientos para estos filtros' : 'Aún no hay movimientos'"
+                    :description="
+                      hasFilters
+                        ? 'Prueba quitando o cambiando los filtros.'
+                        : 'Inicia un viaje desde Asignaciones o registra un movimiento personal.'
+                    "
+                    @reset="resetFilters"
+                  />
+                </td>
+              </tr>
+
+              <tr v-for="b in bitacoras" v-else :key="`mob-${b.id}`" class="fleet-tr">
+                <td class="px-2.5 py-3 text-[11px] leading-tight tabular-nums text-gray-700 dark:text-gray-200">
+                  <p class="font-medium">{{ formatCompactDate(b.recorded_at) }}</p>
+                  <p class="text-gray-500 dark:text-gray-400">{{ formatCompactTime(b.recorded_at) }}</p>
+                </td>
+                <td class="px-2 py-3">
+                  <span class="inline-block rounded bg-gray-100 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-gray-900 dark:bg-gray-800 dark:text-white">
+                    {{ b.vehicle?.license_plate }}
+                  </span>
+                  <div class="mt-1 flex items-center gap-1">
+                    <span
+                      class="inline-block size-1.5 rounded-full"
+                      :class="b.type === 'salida' ? 'bg-amber-500' : 'bg-emerald-500'"
+                    />
+                    <span class="text-[10px] font-medium text-gray-500 dark:text-gray-400">
+                      {{ b.type === 'salida' ? 'Sal.' : 'Reg.' }}
+                      <template v-if="b.trip_category && b.trip_category !== 'asignacion'">
+                        · {{ b.trip_category === 'personal' ? 'Pers.' : 'Impr.' }}
+                      </template>
+                    </span>
+                  </div>
+                </td>
+                <td class="max-w-[96px] truncate px-2 py-3 text-theme-xs text-gray-700 dark:text-gray-200" :title="b.driver?.name || b.user?.name || ''">
+                  {{ b.driver?.name || b.user?.name }}
+                </td>
+                <td class="whitespace-nowrap px-2.5 py-3 text-right">
+                  <TableRowActions
+                    :group-label="`Acciones bitácora ${b.id}`"
+                    :show-edit="canManageFleet"
+                    :show-delete="isAdmin"
+                    @view="openView(b)"
+                    @edit="openEdit(b)"
+                    @delete="confirmDelete(b)"
+                  />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Desktop full table (>= md) -->
+        <div class="hidden max-w-full overflow-x-auto md:block">
           <table class="w-full divide-y divide-gray-200 dark:divide-gray-800">
             <thead>
               <tr>
@@ -92,8 +182,8 @@
                     :title="hasFilters ? 'Sin movimientos para estos filtros' : 'Aún no hay movimientos registrados'"
                     :description="
                       hasFilters
-                        ? 'Prueba cambiando el vehículo o el tipo de movimiento.'
-                        : 'Registra la primera salida o regreso de una unidad.'
+                        ? 'Prueba cambiando el vehículo, tipo o categoría.'
+                        : 'Inicia un viaje desde Asignaciones o registra un movimiento personal.'
                     "
                     @reset="resetFilters"
                   />
@@ -105,7 +195,14 @@
                   {{ formatDateTime(b.recorded_at) }}
                 </td>
                 <td class="fleet-td whitespace-nowrap">
-                  <StatusBadge kind="bitacoraType" :value="b.type" />
+                  <div class="flex flex-wrap items-center gap-1.5">
+                    <StatusBadge kind="bitacoraType" :value="b.type" />
+                    <StatusBadge
+                      v-if="b.trip_category && b.trip_category !== 'asignacion'"
+                      kind="bitacoraCategory"
+                      :value="b.trip_category"
+                    />
+                  </div>
                 </td>
                 <td class="fleet-td whitespace-nowrap">
                   <span class="rounded-md bg-gray-100 px-2 py-0.5 font-mono text-theme-xs font-semibold text-gray-900 dark:bg-gray-800 dark:text-white">
@@ -127,7 +224,7 @@
                     {{ b.fuel_level }}
                   </span>
                 </td>
-                <td class="fleet-td max-w-[160px] xl:max-w-[220px]">
+                <td class="fleet-td max-w-[135px] truncate text-gray-600 dark:text-gray-300 xl:max-w-[200px]">
                   <p class="truncate text-gray-700 dark:text-gray-200" :title="b.destination || ''">
                     {{ b.destination || '—' }}
                   </p>
@@ -179,8 +276,8 @@
     <BaseModal
       :open="modalOpen"
       max-width="xl"
-      :title="editingId ? 'Editar bitácora' : 'Nueva bitácora'"
-      :subtitle="editingId ? 'Actualiza los datos del movimiento registrado.' : 'El tipo de movimiento se calcula automáticamente según la unidad.'"
+      :title="editingId ? 'Editar bitácora' : 'Registrar movimiento en bitácora'"
+      :subtitle="editingId ? 'Actualiza los datos del movimiento registrado.' : 'Las salidas requieren una asignación previa o registrarse como Personal / Imprevisto.'"
       @close="closeModal"
     >
       <div v-if="!editingId" class="mb-4 rounded-xl border border-gray-200/80 bg-gray-50/80 p-3.5 text-theme-xs dark:border-white/[0.07] dark:bg-white/[0.02]">
@@ -189,39 +286,67 @@
             <span class="font-semibold text-gray-900 dark:text-white">Registró:</span>
             {{ currentUser?.name }}
           </p>
-          <p class="text-gray-500 dark:text-gray-400">
-            Hora automática del servidor al guardar
-          </p>
+          <p class="text-gray-500 dark:text-gray-400">Hora automática del servidor al guardar</p>
         </div>
       </div>
 
-      <div
-        v-if="!editingId && !canManageFleet && assignmentOptions.length === 0"
-        class="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-theme-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100"
-      >
-        <p class="font-semibold">No tienes asignaciones activas en este momento.</p>
-        <p class="mt-1 text-theme-xs">
-          Para iniciar una salida necesitas una asignación o tomar un viaje por emergencia desde Asignaciones. (Si vas a registrar el regreso de una unidad en ruta, selecciona el vehículo abajo).
-        </p>
-        <router-link to="/asignaciones" class="fleet-btn-secondary mt-3 h-9 px-3.5 py-1.5 text-theme-xs" @click="closeModal">
-          Ir a Asignaciones →
-        </router-link>
-      </div>
-
       <form id="bitacora-form" class="space-y-4" @submit.prevent="submit">
-        <div v-if="!editingId && assignmentOptions.length > 0">
-          <label for="bitacora-assignment" class="fleet-field-label">
-            Asignación programada {{ canManageFleet ? '(opcional)' : '' }}
-          </label>
+        <!-- Mode selector on Create -->
+        <div v-if="!editingId" class="rounded-xl border border-gray-200/80 bg-gray-50/70 p-3 dark:border-white/[0.07] dark:bg-white/[0.02]">
+          <p class="fleet-label mb-2">Tipo de registro</p>
+          <div :class="['grid gap-2', canManageFleet ? 'grid-cols-3' : 'grid-cols-2']">
+            <button
+              type="button"
+              :class="[
+                'rounded-xl border px-3 py-2 text-theme-xs font-semibold transition-colors',
+                createMode === 'asignacion'
+                  ? 'border-brand-500 bg-brand-50 text-brand-700 dark:bg-brand-500/15 dark:text-brand-300'
+                  : 'border-gray-200 bg-white text-gray-600 dark:border-white/10 dark:bg-[#0b1220] dark:text-gray-300',
+              ]"
+              @click="setCreateMode('asignacion')"
+            >
+              {{ canManageFleet ? 'Asignación / Regreso' : 'Asignación / Regreso' }}
+            </button>
+            <button
+              type="button"
+              :class="[
+                'rounded-xl border px-3 py-2 text-theme-xs font-semibold transition-colors',
+                createMode === 'personal'
+                  ? 'border-purple-500 bg-purple-50 text-purple-700 dark:bg-purple-500/15 dark:text-purple-300'
+                  : 'border-gray-200 bg-white text-gray-600 dark:border-white/10 dark:bg-[#0b1220] dark:text-gray-300',
+              ]"
+              @click="setCreateMode('personal')"
+            >
+              Personal
+            </button>
+            <button
+              v-if="canManageFleet"
+              type="button"
+              :class="[
+                'rounded-xl border px-3 py-2 text-theme-xs font-semibold transition-colors',
+                createMode === 'imprevisto'
+                  ? 'border-rose-500 bg-rose-50 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300'
+                  : 'border-gray-200 bg-white text-gray-600 dark:border-white/10 dark:bg-[#0b1220] dark:text-gray-300',
+              ]"
+              @click="setCreateMode('imprevisto')"
+            >
+              Viaje imprevisto
+            </button>
+          </div>
+          <p v-if="!canManageFleet && createMode === 'asignacion'" class="mt-2 text-[11px] text-gray-500 dark:text-gray-400">
+            Para viajes operativos sin asignación previa, usa <router-link to="/asignaciones" class="font-semibold text-brand-600 underline dark:text-brand-400" @click="closeModal">Asignaciones (o Emergencia)</router-link>.
+          </p>
+        </div>
+
+        <div v-if="!editingId && createMode === 'asignacion' && assignmentOptions.length > 0">
+          <label for="bitacora-assignment" class="fleet-field-label">Asignación programada</label>
           <select
             id="bitacora-assignment"
             v-model="form.assignment_id"
             class="fleet-select"
             @change="onAssignmentChange"
           >
-            <option value="">
-              {{ canManageFleet ? 'Bitácora directa (sin asignación)' : 'Seleccionar asignación / regreso…' }}
-            </option>
+            <option value="">Seleccionar asignación (o regreso directo por vehículo)…</option>
             <option v-for="a in assignmentOptions" :key="a.id" :value="String(a.id)">
               {{ formatShortDate(a.scheduled_date) }} · {{ a.vehicle?.license_plate }} · {{ a.destination }} ({{ a.status === 'en_curso' ? 'Regreso' : 'Salida' }})
             </option>
@@ -266,10 +391,23 @@
           <div class="flex items-center gap-2">
             <span class="text-theme-xs font-medium text-gray-600 dark:text-gray-300">Movimiento detectado:</span>
             <StatusBadge kind="bitacoraType" :value="nextType" />
+            <StatusBadge
+              v-if="nextType === 'salida' && createMode !== 'asignacion'"
+              kind="bitacoraCategory"
+              :value="createMode"
+            />
           </div>
           <span v-if="vehicleLastOdometer !== null" class="text-theme-xs font-medium tabular-nums text-gray-600 dark:text-gray-400">
             Último odómetro: {{ vehicleLastOdometer.toLocaleString() }} km
           </span>
+        </div>
+
+        <div
+          v-if="!editingId && nextType === 'salida' && createMode === 'asignacion' && !form.assignment_id"
+          class="rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-theme-xs text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200"
+        >
+          Para registrar una <strong>salida</strong> debes seleccionar una asignación pendiente arriba, o cambiar a modo
+          <strong>Personal</strong>{{ canManageFleet ? ' / Viaje imprevisto' : '' }}.
         </div>
 
         <div
@@ -322,7 +460,7 @@
             v-model:latitude="form.latitude"
             v-model:longitude="form.longitude"
             v-model:place-id="form.place_id"
-            :label="editingId ? 'Destino / ubicación en mapa' : '¿A dónde se dirige? (selecciona en mapa)'"
+            :label="editingId ? 'Destino / ubicación en mapa' : '¿A dónde se dirige? (obligatorio)'"
             :required="!editingId && nextType === 'salida'"
           />
         </div>
@@ -338,6 +476,20 @@
           />
         </div>
 
+        <div v-if="createMode === 'imprevisto' || editingId">
+          <label for="bitacora-notes" class="fleet-field-label">
+            Motivo / notas del movimiento {{ createMode === 'imprevisto' ? '*' : '(opcional)' }}
+          </label>
+          <textarea
+            id="bitacora-notes"
+            v-model="form.notes"
+            rows="2"
+            :required="!editingId && createMode === 'imprevisto' && nextType === 'salida'"
+            class="fleet-textarea"
+            placeholder="Ej. Entrega urgente autorizada por jefatura"
+          />
+        </div>
+
         <div>
           <label for="bitacora-companions" class="fleet-field-label">Personas que acompañan</label>
           <textarea
@@ -345,7 +497,7 @@
             v-model="form.companions"
             rows="2"
             class="fleet-textarea"
-            placeholder="Nombres separados por comas, u observaciones"
+            placeholder="Nombres separados por comas, o dejar vacío"
           />
         </div>
       </form>
@@ -369,7 +521,10 @@
     >
       <div v-if="detailItem" class="space-y-4">
         <div class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gray-200/80 bg-gray-50/80 px-4 py-3 dark:border-white/[0.07] dark:bg-white/[0.02]">
-          <StatusBadge kind="bitacoraType" :value="detailItem.type" />
+          <div class="flex flex-wrap items-center gap-2">
+            <StatusBadge kind="bitacoraType" :value="detailItem.type" />
+            <StatusBadge kind="bitacoraCategory" :value="detailItem.trip_category || 'asignacion'" />
+          </div>
           <span class="text-theme-xs font-medium tabular-nums text-gray-500 dark:text-gray-400">
             {{ formatDateTime(detailItem.recorded_at) }}
           </span>
@@ -435,6 +590,9 @@
           <p v-if="detailItem.destination_address" class="mt-0.5 text-theme-xs text-gray-500 dark:text-gray-400">
             {{ detailItem.destination_address }}
           </p>
+          <p v-if="detailItem.notes" class="mt-2 rounded-lg bg-gray-50 p-2.5 text-theme-xs text-gray-700 dark:bg-white/[0.03] dark:text-gray-300">
+            <strong>Motivo / notas:</strong> {{ detailItem.notes }}
+          </p>
           <p v-if="hasCoordinates(detailItem.latitude, detailItem.longitude)" class="mt-1 font-mono text-[11px] text-gray-500">
             {{ formatCoordinates(detailItem.latitude, detailItem.longitude) }}
           </p>
@@ -496,10 +654,12 @@ const saving = ref(false);
 const meta = ref({ current_page: 1, last_page: 1, total: 0, from: 0, to: 0 });
 const filterVehicleId = ref('');
 const filterType = ref('');
+const filterCategory = ref('');
 const modalOpen = ref(false);
 const detailOpen = ref(false);
 const detailItem = ref(null);
 const editingId = ref(null);
+const createMode = ref('asignacion');
 const nextType = ref(null);
 const vehicleStatus = ref(null);
 const vehicleLastOdometer = ref(null);
@@ -517,9 +677,10 @@ const form = reactive({
   place_id: '',
   companions: '',
   official_instruction: '',
+  notes: '',
 });
 
-const hasFilters = computed(() => Boolean(filterVehicleId.value || filterType.value));
+const hasFilters = computed(() => Boolean(filterVehicleId.value || filterType.value || filterCategory.value));
 
 const selectedAssignment = computed(() =>
   assignmentOptions.value.find((a) => String(a.id) === String(form.assignment_id)) || null,
@@ -543,8 +704,17 @@ const wazeLink = (item) =>
 
 const formatDateTime = (iso) => {
   if (!iso) return '';
-  const d = new Date(iso);
-  return d.toLocaleString('es-HN', { dateStyle: 'short', timeStyle: 'medium' });
+  return new Date(iso).toLocaleString('es-HN', { dateStyle: 'short', timeStyle: 'medium' });
+};
+
+const formatCompactDate = (iso) => {
+  if (!iso) return '';
+  return new Date(iso).toLocaleDateString('es-HN', { day: '2-digit', month: '2-digit' });
+};
+
+const formatCompactTime = (iso) => {
+  if (!iso) return '';
+  return new Date(iso).toLocaleTimeString('es-HN', { hour: '2-digit', minute: '2-digit' });
 };
 
 const formatShortDate = (dateStr) => {
@@ -579,6 +749,7 @@ const loadBitacoras = async (page = 1) => {
     const params = { page, per_page: 15 };
     if (filterVehicleId.value) params.vehicle_id = filterVehicleId.value;
     if (filterType.value) params.type = filterType.value;
+    if (filterCategory.value) params.trip_category = filterCategory.value;
     const { data } = await window.axios.get('/bitacoras', { params });
     bitacoras.value = data.data || [];
     meta.value = {
@@ -598,6 +769,7 @@ const loadBitacoras = async (page = 1) => {
 const resetFilters = () => {
   filterVehicleId.value = '';
   filterType.value = '';
+  filterCategory.value = '';
   loadBitacoras(1);
 };
 
@@ -654,8 +826,17 @@ const onAssignmentChange = async () => {
   await fetchNextType(form.vehicle_id);
 };
 
+const setCreateMode = (mode) => {
+  createMode.value = mode;
+  if (mode !== 'asignacion') {
+    form.assignment_id = '';
+    form.official_instruction = '';
+  }
+};
+
 const openCreate = () => {
   editingId.value = null;
+  createMode.value = !canManageFleet.value && assignmentOptions.value.length === 0 ? 'personal' : 'asignacion';
   form.assignment_id = '';
   form.vehicle_id = '';
   form.driver_id = '';
@@ -668,6 +849,7 @@ const openCreate = () => {
   form.place_id = '';
   form.companions = '';
   form.official_instruction = '';
+  form.notes = '';
   nextType.value = null;
   vehicleStatus.value = null;
   vehicleLastOdometer.value = null;
@@ -676,6 +858,7 @@ const openCreate = () => {
 
 const openEdit = (b) => {
   editingId.value = b.id;
+  createMode.value = b.trip_category || 'asignacion';
   form.assignment_id = b.assignment_id ? String(b.assignment_id) : '';
   form.vehicle_id = String(b.vehicle_id);
   form.driver_id = b.driver_id ? String(b.driver_id) : '';
@@ -688,6 +871,7 @@ const openEdit = (b) => {
   form.place_id = b.place_id || '';
   form.companions = b.companions || '';
   form.official_instruction = b.official_instruction || '';
+  form.notes = b.notes || '';
   nextType.value = null;
   vehicleStatus.value = null;
   vehicleLastOdometer.value = null;
@@ -705,6 +889,14 @@ const closeModal = () => {
 
 const submit = async () => {
   if (saving.value) return;
+  if (!editingId.value && nextType.value === 'salida' && createMode.value === 'asignacion' && !form.assignment_id) {
+    await showWarningAlert(
+      'Selección requerida',
+      'Para registrar una salida elige una asignación o cambia a Personal' + (canManageFleet.value ? ' / Viaje imprevisto.' : '.'),
+    );
+    return;
+  }
+
   if (!editingId.value && nextType.value === 'salida' && !String(form.destination || '').trim()) {
     await showWarningAlert('Destino requerido', 'Indique o seleccione en el mapa a dónde se dirige el vehículo.');
     return;
@@ -723,6 +915,7 @@ const submit = async () => {
       place_id: form.place_id || null,
       companions: form.companions || null,
       official_instruction: form.official_instruction || null,
+      notes: form.notes?.trim() || null,
     };
 
     if (editingId.value) {
@@ -732,6 +925,7 @@ const submit = async () => {
         ...payload,
         vehicle_id: Number(form.vehicle_id),
         assignment_id: form.assignment_id ? Number(form.assignment_id) : null,
+        trip_category: form.assignment_id ? 'asignacion' : createMode.value,
       });
     }
     await showSuccessAlert('Guardado');

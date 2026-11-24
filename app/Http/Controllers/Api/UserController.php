@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateUserRequest;
 use App\Models\User;
+use App\Services\SystemLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -76,6 +77,16 @@ class UserController extends Controller
 
         $user = User::query()->create($data);
 
+        SystemLogger::record(
+            $request->user(),
+            'users',
+            'created',
+            "Creó usuario {$user->name} ({$user->role})",
+            $user,
+            ['email' => $user->email, 'role' => $user->role],
+            $request,
+        );
+
         return response()->json($user->fresh(), 201);
     }
 
@@ -114,6 +125,16 @@ class UserController extends Controller
         $user->fill($data);
         $user->save();
 
+        SystemLogger::record(
+            $request->user(),
+            'users',
+            'updated',
+            "Actualizó usuario {$user->name} ({$user->role})",
+            $user,
+            ['changes' => array_keys($user->getChanges())],
+            $request,
+        );
+
         return response()->json($user->fresh());
     }
 
@@ -125,11 +146,24 @@ class UserController extends Controller
             ], 422);
         }
 
+        $name = $user->name;
+        $id = $user->id;
+
         if ($user->photo_path) {
             Storage::disk('public')->delete($user->photo_path);
         }
 
         $user->delete();
+
+        SystemLogger::record(
+            $request->user(),
+            'users',
+            'deleted',
+            "Eliminó usuario {$name}",
+            null,
+            ['deleted_user_id' => $id, 'name' => $name],
+            $request,
+        );
 
         return response()->json(null, 204);
     }

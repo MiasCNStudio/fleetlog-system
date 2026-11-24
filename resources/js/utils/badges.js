@@ -29,6 +29,21 @@ export const BITACORA_TYPE_META = {
   },
 };
 
+export const BITACORA_CATEGORY_META = {
+  asignacion: {
+    label: 'Asignación',
+    badge: 'bg-brand-50 text-brand-700 ring-1 ring-inset ring-brand-500/20 dark:bg-brand-500/15 dark:text-brand-300 dark:ring-brand-400/25',
+  },
+  personal: {
+    label: 'Personal',
+    badge: 'bg-purple-500/15 text-purple-700 ring-1 ring-inset ring-purple-500/20 dark:bg-purple-500/15 dark:text-purple-300 dark:ring-purple-400/25',
+  },
+  imprevisto: {
+    label: 'Imprevisto',
+    badge: 'bg-rose-500/15 text-rose-700 ring-1 ring-inset ring-rose-500/20 dark:bg-rose-500/15 dark:text-rose-300 dark:ring-rose-400/25',
+  },
+};
+
 export const ASSIGNMENT_STATUS_META = {
   pendiente: {
     label: 'Pendiente',
@@ -116,5 +131,67 @@ export const USER_TYPE_META = {
   funcionario: {
     label: 'Funcionario',
     badge: 'bg-emerald-500/15 text-emerald-700 ring-1 ring-inset ring-emerald-500/20 dark:bg-emerald-500/15 dark:text-emerald-300 dark:ring-emerald-400/20',
+  },
+};
+
+export const LOG_MODULE_META = {
+  auth: {
+    label: 'Acceso',
+    badge: 'bg-gray-100 text-gray-700 ring-1 ring-inset ring-gray-300/70 dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-700',
+  },
+  assignments: {
+    label: 'Asignaciones',
+    badge: 'bg-brand-50 text-brand-700 ring-1 ring-inset ring-brand-500/20 dark:bg-brand-500/15 dark:text-brand-300 dark:ring-brand-400/25',
+  },
+  bitacoras: {
+    label: 'Bitácora',
+    badge: 'bg-amber-500/15 text-amber-800 ring-1 ring-inset ring-amber-500/25 dark:bg-amber-500/15 dark:text-amber-300 dark:ring-amber-400/25',
+  },
+  vehicles: {
+    label: 'Vehículos',
+    badge: 'bg-sky-500/15 text-sky-700 ring-1 ring-inset ring-sky-500/20 dark:bg-sky-500/15 dark:text-sky-300 dark:ring-sky-400/25',
+  },
+  incidents: {
+    label: 'Incidencias',
+    badge: 'bg-rose-500/15 text-rose-700 ring-1 ring-inset ring-rose-500/20 dark:bg-rose-500/15 dark:text-rose-300 dark:ring-rose-400/25',
+  },
+  users: {
+    label: 'Usuarios',
+    badge: 'bg-purple-500/15 text-purple-700 ring-1 ring-inset ring-purple-500/20 dark:bg-purple-500/15 dark:text-purple-300 dark:ring-purple-400/25',
+  },
+};
+
+export const LOG_ACTION_META = {
+  created: {
+    label: 'Creación',
+    badge: 'bg-emerald-500/15 text-emerald-700 ring-1 ring-inset ring-emerald-500/20 dark:bg-emerald-500/15 dark:text-emerald-300 dark:ring-emerald-400/20',
+  },
+  updated: {
+    label: 'Edición',
+    badge: 'bg-sky-500/15 text-sky-700 ring-1 ring-inset ring-sky-500/20 dark:bg-sky-500/15 dark:text-sky-300 dark:ring-sky-400/25',
+  },
+  deleted: {
+    label: 'Eliminación',
+    badge: 'bg-rose-500/15 text-rose-700 ring-1 ring-inset ring-rose-500/20 dark:bg-rose-500/15 dark:text-rose-300 dark:ring-rose-400/25',
+  },
+  emergency_reassigned: {
+    label: 'Emergencia',
+    badge: 'bg-rose-600/20 text-rose-800 ring-1 ring-inset ring-rose-600/25 dark:bg-rose-500/20 dark:text-rose-300 dark:ring-rose-400/30',
+  },
+  personal_trip: {
+    label: 'Viaje personal',
+    badge: 'bg-purple-500/15 text-purple-700 ring-1 ring-inset ring-purple-500/20 dark:bg-purple-500/15 dark:text-purple-300 dark:ring-purple-400/25',
+  },
+  unplanned_trip: {
+    label: 'Imprevisto',
+    badge: 'bg-amber-500/15 text-amber-800 ring-1 ring-inset ring-amber-500/25 dark:bg-amber-500/15 dark:text-amber-300 dark:ring-amber-400/25',
+  },
+  login: {
+    label: 'Ingreso',
+    badge: 'bg-gray-100 text-gray-700 ring-1 ring-inset ring-gray-300/70 dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-700',
+  },
+  logout: {
+    label: 'Salida',
+    badge: 'bg-gray-100 text-gray-600 ring-1 ring-inset ring-gray-300/70 dark:bg-gray-800 dark:text-gray-400 dark:ring-gray-700',
   },
 };

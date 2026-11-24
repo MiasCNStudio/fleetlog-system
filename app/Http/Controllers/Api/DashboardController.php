@@ -90,10 +90,27 @@ class DashboardController extends Controller
                 'latitude' => $b?->latitude,
                 'longitude' => $b?->longitude,
                 'recorded_at' => $b?->recorded_at?->toIso8601String(),
+                'driver_id' => $b?->driver_id ?? $b?->user_id,
                 'driver_name' => $b?->driver?->name ?? $b?->user?->name,
                 'odometer_km' => $b?->odometer_km ?? $vehicle->current_odometer,
             ];
         })->values();
+
+        $authUser = $request->user();
+        $myActiveTrip = $activeTrips->first(fn (array $trip) => (int) ($trip['driver_id'] ?? 0) === (int) $authUser->id);
+
+        $myAssignments = Assignment::query()
+            ->with([
+                'vehicle:id,license_plate,brand,model,status,current_odometer',
+                'driver:id,name,driver_code',
+                'originalDriver:id,name',
+            ])
+            ->where('driver_id', $authUser->id)
+            ->whereIn('status', [Assignment::STATUS_PENDING, Assignment::STATUS_IN_PROGRESS])
+            ->orderBy('scheduled_date')
+            ->orderBy('scheduled_time')
+            ->limit(10)
+            ->get();
 
         $recentIncidents = Incident::query()
             ->with(['vehicle:id,license_plate,brand,model', 'reporter:id,name'])
@@ -146,7 +163,9 @@ class DashboardController extends Controller
             'active_trips' => $activeTrips,
             'recent_incidents' => $recentIncidents,
             'upcoming_assignments' => $upcomingAssignments,
-            'user' => $request->user(),
+            'my_assignments' => $myAssignments,
+            'my_active_trip' => $myActiveTrip,
+            'user' => $authUser,
         ]);
     }
 }

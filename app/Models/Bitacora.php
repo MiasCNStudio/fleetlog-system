@@ -11,6 +11,18 @@ class Bitacora extends Model
 
     public const TYPE_REGRESO = 'regreso';
 
+    public const CATEGORY_ASSIGNMENT = 'asignacion';
+
+    public const CATEGORY_PERSONAL = 'personal';
+
+    public const CATEGORY_UNPLANNED = 'imprevisto';
+
+    public const CATEGORIES = [
+        self::CATEGORY_ASSIGNMENT,
+        self::CATEGORY_PERSONAL,
+        self::CATEGORY_UNPLANNED,
+    ];
+
     public const FUEL_LEVELS = [
         'lleno',
         '3/4',
@@ -25,6 +37,7 @@ class Bitacora extends Model
         'driver_id',
         'assignment_id',
         'type',
+        'trip_category',
         'recorded_at',
         'odometer_km',
         'fuel_level',
@@ -35,6 +48,7 @@ class Bitacora extends Model
         'place_id',
         'companions',
         'official_instruction',
+        'notes',
     ];
 
     protected function casts(): array

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\SystemLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
@@ -29,6 +30,16 @@ class AuthController extends Controller
         $deviceName = $credentials['device_name'] ?? 'web-dashboard';
         $token = $user->createToken($deviceName)->plainTextToken;
 
+        SystemLogger::record(
+            $user,
+            'auth',
+            'login',
+            "Inicio de sesión ({$deviceName})",
+            $user,
+            ['device_name' => $deviceName],
+            $request,
+        );
+
         return response()->json([
             'token' => $token,
             'user' => $user,
@@ -42,7 +53,20 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
-        $request->user()?->currentAccessToken()?->delete();
+        $user = $request->user();
+        $user?->currentAccessToken()?->delete();
+
+        if ($user) {
+            SystemLogger::record(
+                $user,
+                'auth',
+                'logout',
+                'Cerró sesión',
+                $user,
+                [],
+                $request,
+            );
+        }
 
         return response()->json([
             'message' => 'Sesion cerrada correctamente.',

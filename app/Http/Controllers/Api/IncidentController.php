@@ -7,6 +7,7 @@ use App\Http\Requests\StoreIncidentRequest;
 use App\Http\Requests\UpdateIncidentRequest;
 use App\Models\Incident;
 use App\Models\Vehicle;
+use App\Services\SystemLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -74,13 +75,25 @@ class IncidentController extends Controller
             return $created;
         });
 
-        return response()->json(
-            $incident->load([
-                'vehicle:id,license_plate,brand,model,status',
-                'reporter:id,name,email',
-            ]),
-            201
+        $loaded = $incident->load([
+            'vehicle:id,license_plate,brand,model,status',
+            'reporter:id,name,email',
+        ]);
+
+        SystemLogger::record(
+            $authUser,
+            'incidents',
+            'created',
+            "Reportó incidencia en {$loaded->vehicle?->license_plate}: {$loaded->title}",
+            $loaded,
+            [
+                'severity' => $loaded->severity,
+                'set_vehicle_maintenance' => $setMaintenance && $authUser->canManageFleet(),
+            ],
+            $request,
         );
+
+        return response()->json($loaded, 201);
     }
 
     public function show(Incident $incident): JsonResponse
@@ -112,6 +125,16 @@ class IncidentController extends Controller
         $incident->fill($data);
         $incident->save();
 
+        SystemLogger::record(
+            $request->user(),
+            'incidents',
+            'updated',
+            "Actualizó incidencia #{$incident->id} ({$incident->title}) a estado {$incident->status}",
+            $incident,
+            ['changes' => $incident->getChanges()],
+            $request,
+        );
+
         return response()->json(
             $incident->load([
                 'vehicle:id,license_plate,brand,model,status',
@@ -121,13 +144,26 @@ class IncidentController extends Controller
         );
     }
 
-    public function destroy(Incident $incident): JsonResponse
+    public function destroy(Request $request, Incident $incident): JsonResponse
     {
+        $id = $incident->id;
+        $title = $incident->title;
+
         if ($incident->photo_path) {
             Storage::disk('public')->delete($incident->photo_path);
         }
 
         $incident->delete();
+
+        SystemLogger::record(
+            $request->user(),
+            'incidents',
+            'deleted',
+            "Eliminó incidencia #{$id} ({$title})",
+            null,
+            ['incident_id' => $id, 'title' => $title],
+            $request,
+        );
 
         return response()->json(null, 204);
     }

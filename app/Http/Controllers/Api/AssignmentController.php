@@ -7,6 +7,7 @@ use App\Http\Requests\EmergencyReassignAssignmentRequest;
 use App\Http\Requests\StoreAssignmentRequest;
 use App\Http\Requests\UpdateAssignmentRequest;
 use App\Models\Assignment;
+use App\Services\SystemLogger;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 use Illuminate\Http\JsonResponse;
@@ -156,11 +157,29 @@ class AssignmentController extends Controller
             return $items;
         });
 
+        $first = $created->first();
+        SystemLogger::record(
+            $authUser,
+            'assignments',
+            'created',
+            $created->count() > 1
+                ? "Programó {$created->count()} asignaciones hacia {$first?->destination}"
+                : "Creó asignación #{$first?->id} hacia {$first?->destination} ({$first?->scheduled_date?->format('Y-m-d')})",
+            $first,
+            [
+                'created_count' => $created->count(),
+                'schedule_group_id' => $groupId,
+                'vehicle_plate' => $first?->vehicle?->license_plate,
+                'driver_name' => $first?->driver?->name,
+            ],
+            $request,
+        );
+
         return response()->json([
             'created_count' => $created->count(),
             'schedule_group_id' => $groupId,
             'data' => $created->values(),
-            'assignment' => $created->first(),
+            'assignment' => $first,
         ], 201);
     }
 
@@ -183,6 +202,16 @@ class AssignmentController extends Controller
         $assignment->fill($data);
         $assignment->save();
 
+        SystemLogger::record(
+            $request->user(),
+            'assignments',
+            'updated',
+            "Actualizó asignación #{$assignment->id} ({$assignment->destination})",
+            $assignment,
+            ['changes' => $assignment->getChanges()],
+            $request,
+        );
+
         return response()->json($assignment->load($this->relations()));
     }
 
@@ -191,7 +220,7 @@ class AssignmentController extends Controller
         $data = $request->validated();
         $authUser = $request->user();
 
-        $updated = DB::transaction(function () use ($assignment, $data, $authUser) {
+        $updated = DB::transaction(function () use ($assignment, $data, $authUser, $request) {
             /** @var Assignment $locked */
             $locked = Assignment::query()->lockForUpdate()->findOrFail($assignment->id);
 
@@ -222,15 +251,44 @@ class AssignmentController extends Controller
             $locked->reassigned_at = now();
             $locked->save();
 
-            return $locked->load($this->relations());
+            $loaded = $locked->load($this->relations());
+
+            SystemLogger::record(
+                $authUser,
+                'assignments',
+                'emergency_reassigned',
+                "Reasignación por emergencia en #{$loaded->id}: {$loaded->driver?->name} sustituyó a {$loaded->originalDriver?->name} ({$loaded->destination})",
+                $loaded,
+                [
+                    'original_driver' => $loaded->originalDriver?->name,
+                    'new_driver' => $loaded->driver?->name,
+                    'reason' => $loaded->reassignment_reason,
+                    'vehicle_plate' => $loaded->vehicle?->license_plate,
+                ],
+                $request,
+            );
+
+            return $loaded;
         });
 
         return response()->json($updated);
     }
 
-    public function destroy(Assignment $assignment): JsonResponse
+    public function destroy(Request $request, Assignment $assignment): JsonResponse
     {
+        $id = $assignment->id;
+        $dest = $assignment->destination;
         $assignment->delete();
+
+        SystemLogger::record(
+            $request->user(),
+            'assignments',
+            'deleted',
+            "Eliminó asignación #{$id} ({$dest})",
+            null,
+            ['assignment_id' => $id, 'destination' => $dest],
+            $request,
+        );
 
         return response()->json(null, 204);
     }

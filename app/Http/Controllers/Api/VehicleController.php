@@ -7,6 +7,7 @@ use App\Http\Requests\StoreVehicleRequest;
 use App\Http\Requests\UpdateVehicleRequest;
 use App\Models\Bitacora;
 use App\Models\Vehicle;
+use App\Services\SystemLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -78,6 +79,16 @@ class VehicleController extends Controller
 
         $vehicle = Vehicle::query()->create($data);
 
+        SystemLogger::record(
+            $request->user(),
+            'vehicles',
+            'created',
+            "Registró el vehículo {$vehicle->license_plate} ({$vehicle->brand} {$vehicle->model})",
+            $vehicle,
+            ['license_plate' => $vehicle->license_plate, 'status' => $vehicle->status],
+            $request,
+        );
+
         return response()->json($vehicle->fresh(), 201);
     }
 
@@ -107,16 +118,39 @@ class VehicleController extends Controller
         $vehicle->fill($data);
         $vehicle->save();
 
+        SystemLogger::record(
+            $request->user(),
+            'vehicles',
+            'updated',
+            "Actualizó vehículo {$vehicle->license_plate}",
+            $vehicle,
+            ['changes' => $vehicle->getChanges()],
+            $request,
+        );
+
         return response()->json($vehicle->fresh());
     }
 
-    public function destroy(Vehicle $vehicle): JsonResponse
+    public function destroy(Request $request, Vehicle $vehicle): JsonResponse
     {
+        $plate = $vehicle->license_plate;
+        $id = $vehicle->id;
+
         if ($vehicle->photo_path) {
             Storage::disk('public')->delete($vehicle->photo_path);
         }
 
         $vehicle->delete();
+
+        SystemLogger::record(
+            $request->user(),
+            'vehicles',
+            'deleted',
+            "Eliminó vehículo {$plate}",
+            null,
+            ['vehicle_id' => $id, 'license_plate' => $plate],
+            $request,
+        );
 
         return response()->json(null, 204);
     }

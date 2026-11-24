@@ -6,6 +6,7 @@ import UsersView from './views/UsersView.vue';
 import VehiclesView from './views/VehiclesView.vue';
 import BitacoraView from './views/BitacoraView.vue';
 import IncidentsView from './views/IncidentsView.vue';
+import SystemLogsView from './views/SystemLogsView.vue';
 
 const routes = [
   { path: '/login', name: 'login', component: LoginView },
@@ -16,6 +17,12 @@ const routes = [
   { path: '/vehiculos', name: 'vehicles', component: VehiclesView, meta: { requiresAuth: true } },
   { path: '/bitacora', name: 'bitacora', component: BitacoraView, meta: { requiresAuth: true } },
   { path: '/incidencias', name: 'incidents', component: IncidentsView, meta: { requiresAuth: true } },
+  {
+    path: '/bitacora-sistema',
+    name: 'system-logs',
+    component: SystemLogsView,
+    meta: { requiresAuth: true, requiresFleetManager: true },
+  },
 ];
 
 const router = createRouter({
@@ -29,10 +36,13 @@ router.beforeEach((to) => {
   if (to.meta.requiresAuth && !hasToken) return { name: 'login' };
   if (to.name === 'login' && hasToken) return { name: 'dashboard' };
 
-  if (to.meta.requiresAdmin) {
+  if (to.meta.requiresAdmin || to.meta.requiresFleetManager) {
     try {
       const user = JSON.parse(localStorage.getItem('auth_user') || 'null');
-      if (user && user.role !== 'admin') {
+      if (to.meta.requiresAdmin && user && user.role !== 'admin') {
+        return { name: 'dashboard' };
+      }
+      if (to.meta.requiresFleetManager && user && !['admin', 'despachador'].includes(user.role)) {
         return { name: 'dashboard' };
       }
     } catch (_) {

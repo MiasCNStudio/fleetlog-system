@@ -201,6 +201,7 @@ class FleetlogOperationsTest extends TestCase
         // No debe permitir salida si está en mantenimiento (ni por admin)
         $this->actingAs($admin)->postJson('/api/bitacoras', [
             'vehicle_id' => $vehicle->id,
+            'trip_category' => 'imprevisto',
             'destination' => 'Puerto Cortés',
         ])->assertUnprocessable();
 
@@ -212,5 +213,66 @@ class FleetlogOperationsTest extends TestCase
         $this->actingAs($admin)->putJson("/api/incidents/{$incidentId}", [
             'status' => Incident::STATUS_RESOLVED,
         ])->assertOk()->assertJsonPath('status', Incident::STATUS_RESOLVED);
+    }
+
+    public function test_personal_and_unplanned_trips_and_system_logs_audit(): void
+    {
+        $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
+        $dispatcher = User::factory()->create(['role' => User::ROLE_DISPATCHER]);
+        $driver = User::factory()->driver()->create();
+
+        $vehicle = Vehicle::query()->create([
+            'license_plate' => 'HEE-3030',
+            'color' => 'Gris',
+            'brand' => 'Toyota',
+            'model' => 'Hilux',
+            'status' => Vehicle::STATUS_AVAILABLE,
+            'current_odometer' => 1000,
+        ]);
+
+        // Motorista NO puede crear viaje imprevisto
+        $this->actingAs($driver)->postJson('/api/bitacoras', [
+            'vehicle_id' => $vehicle->id,
+            'trip_category' => 'imprevisto',
+            'destination' => 'Puerto',
+        ])->assertUnprocessable();
+
+        // Admin NO puede crear salida libre sin categoría ni asignación
+        $this->actingAs($admin)->postJson('/api/bitacoras', [
+            'vehicle_id' => $vehicle->id,
+            'destination' => 'Sin motivo',
+        ])->assertUnprocessable();
+
+        // Motorista SÍ puede registrar viaje Personal con destino
+        $this->actingAs($driver)->postJson('/api/bitacoras', [
+            'vehicle_id' => $vehicle->id,
+            'trip_category' => 'personal',
+            'destination' => 'Trámite personal en centro',
+            'odometer_km' => 1020,
+        ])->assertCreated()->assertJsonPath('trip_category', 'personal');
+
+        // Regreso cierra viaje personal
+        $this->actingAs($driver)->postJson('/api/bitacoras', [
+            'vehicle_id' => $vehicle->id,
+            'odometer_km' => 1035,
+        ])->assertCreated()->assertJsonPath('type', 'regreso');
+
+        // Jefe de motoristas (despachador) SÍ puede registrar Viaje imprevisto
+        $this->actingAs($dispatcher)->postJson('/api/bitacoras', [
+            'vehicle_id' => $vehicle->id,
+            'trip_category' => 'imprevisto',
+            'destination' => 'Emergencia logística',
+            'notes' => 'Entrega urgente autorizada',
+            'odometer_km' => 1040,
+        ])->assertCreated()->assertJsonPath('trip_category', 'imprevisto');
+
+        // Motorista NO puede ver Bitácora del sistema
+        $this->actingAs($driver)->getJson('/api/system-logs')->assertForbidden();
+
+        // Admin y Jefe de motoristas SÍ pueden verla y contiene los registros auditados
+        $logsResp = $this->actingAs($dispatcher)->getJson('/api/system-logs')->assertOk();
+        $actions = collect($logsResp->json('data'))->pluck('action')->all();
+        $this->assertContains('personal_trip', $actions);
+        $this->assertContains('unplanned_trip', $actions);
     }
 }

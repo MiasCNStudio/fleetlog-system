@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\BitacoraController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\IncidentController;
 use App\Http\Controllers\Api\PlaceController;
+use App\Http\Controllers\Api\SystemLogController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\VehicleController;
 use Illuminate\Support\Facades\Route;
@@ -75,4 +76,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('incidents/{incident}', [IncidentController::class, 'update']);
     });
     Route::delete('incidents/{incident}', [IncidentController::class, 'destroy'])->middleware('role:admin');
+
+    // Bitácora del sistema (auditoría): solo admin y jefe de motoristas (despachador)
+    Route::get('system-logs', [SystemLogController::class, 'index'])->middleware('role:admin,despachador');
 });
