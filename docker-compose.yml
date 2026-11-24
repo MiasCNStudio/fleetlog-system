@@ -42,10 +42,11 @@ services:
     volumes:
       - fleetlog_db:/var/lib/mysql
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$$MYSQL_ROOT_PASSWORD || exit 1"]
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p$$MYSQL_ROOT_PASSWORD || exit 1"]
       interval: 5s
       timeout: 5s
-      retries: 15
+      retries: 25
+      start_period: 60s
 
 volumes:
   fleetlog_db:
