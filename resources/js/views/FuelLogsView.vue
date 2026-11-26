@@ -377,7 +377,7 @@ import { useAuth } from '../composables/useAuth';
 import { confirmDeleteDialog, showErrorAlert, showSuccessAlert } from '../utils/alerts';
 import { googleMapsUrl, hasCoordinates } from '../utils/maps';
 
-const { currentUser, isAdmin, loadMe, logout } = useAuth();
+const { currentUser, isAdmin, ensureMe, logout } = useAuth();
 
 const rangeOptions = [
   { value: 'week', label: 'Últimos 7 días' },
@@ -602,7 +602,7 @@ const removeFuel = async (f) => {
 };
 
 onMounted(async () => {
-  await loadMe();
+  await ensureMe();
   await Promise.all([loadVehicles(), loadData(1), loadSummary()]);
 });
 </script>

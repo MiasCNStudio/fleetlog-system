@@ -211,7 +211,7 @@ import TablePagination from '@/components/common/TablePagination.vue';
 import TableRowActions from '@/components/common/TableRowActions.vue';
 import { useAuth } from '../composables/useAuth';
 
-const { currentUser, loadMe, logout } = useAuth();
+const { currentUser, ensureMe, logout } = useAuth();
 
 const logs = ref([]);
 const loading = ref(true);
@@ -279,7 +279,7 @@ const openView = (log) => {
 };
 
 onMounted(async () => {
-  await loadMe();
+  await ensureMe();
   await loadLogs(1);
 });
 </script>

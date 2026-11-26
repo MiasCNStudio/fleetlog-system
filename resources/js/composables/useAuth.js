@@ -13,6 +13,9 @@ const storedUser = (() => {
 })();
 
 const currentUser = ref(storedUser);
+let lastSyncedAt = 0;
+let inFlightMe = null;
+const ME_SYNC_TTL_MS = 60_000;
 
 export function setCurrentUser(user) {
   currentUser.value = user || null;
@@ -20,6 +23,7 @@ export function setCurrentUser(user) {
     localStorage.setItem('auth_user', JSON.stringify(user));
   } else {
     localStorage.removeItem('auth_user');
+    lastSyncedAt = 0;
   }
 }
 
@@ -32,9 +36,34 @@ export function useAuth() {
   );
 
   const loadMe = async () => {
-    const { data } = await window.axios.get('/user');
-    setCurrentUser(data);
-    return data;
+    if (inFlightMe) {
+      return inFlightMe;
+    }
+
+    inFlightMe = window.axios
+      .get('/user')
+      .then(({ data }) => {
+        setCurrentUser(data);
+        lastSyncedAt = Date.now();
+        return data;
+      })
+      .finally(() => {
+        inFlightMe = null;
+      });
+
+    return inFlightMe;
+  };
+
+  const ensureMe = async () => {
+    if (!currentUser.value) {
+      return loadMe();
+    }
+
+    if (Date.now() - lastSyncedAt > ME_SYNC_TTL_MS) {
+      loadMe().catch(() => {});
+    }
+
+    return currentUser.value;
   };
 
   const logout = async (showAlert = false) => {
@@ -57,6 +86,7 @@ export function useAuth() {
     isAdmin,
     canManageFleet,
     loadMe,
+    ensureMe,
     logout,
   };
 }

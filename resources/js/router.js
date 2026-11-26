@@ -1,15 +1,15 @@
 import { createRouter, createWebHistory } from 'vue-router';
-import LoginView from './views/LoginView.vue';
-import DashboardView from './views/DashboardView.vue';
-import AssignmentsView from './views/AssignmentsView.vue';
-import UsersView from './views/UsersView.vue';
-import VehiclesView from './views/VehiclesView.vue';
-import BitacoraView from './views/BitacoraView.vue';
-import IncidentsView from './views/IncidentsView.vue';
-import MaintenanceView from './views/MaintenanceView.vue';
-import FuelLogsView from './views/FuelLogsView.vue';
-import SystemLogsView from './views/SystemLogsView.vue';
-import TrackingView from './views/TrackingView.vue';
+const LoginView = () => import('./views/LoginView.vue');
+const DashboardView = () => import('./views/DashboardView.vue');
+const AssignmentsView = () => import('./views/AssignmentsView.vue');
+const UsersView = () => import('./views/UsersView.vue');
+const VehiclesView = () => import('./views/VehiclesView.vue');
+const BitacoraView = () => import('./views/BitacoraView.vue');
+const IncidentsView = () => import('./views/IncidentsView.vue');
+const MaintenanceView = () => import('./views/MaintenanceView.vue');
+const FuelLogsView = () => import('./views/FuelLogsView.vue');
+const SystemLogsView = () => import('./views/SystemLogsView.vue');
+const TrackingView = () => import('./views/TrackingView.vue');
 
 const routes = [
   { path: '/login', name: 'login', component: LoginView },

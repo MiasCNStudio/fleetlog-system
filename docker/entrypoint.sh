@@ -35,4 +35,8 @@ if [ "${AUTO_SEED:-false}" = "true" ]; then
     php artisan db:seed --force
 fi
 
+if [ "${APP_ENV:-production}" = "production" ]; then
+    php artisan optimize
+fi
+
 exec /usr/bin/supervisord -c /etc/supervisord.conf

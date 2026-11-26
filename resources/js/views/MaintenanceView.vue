@@ -309,7 +309,7 @@ import TablePagination from '@/components/common/TablePagination.vue';
 import { useAuth } from '../composables/useAuth';
 import { confirmDeleteDialog, showErrorAlert, showSuccessAlert } from '../utils/alerts';
 
-const { currentUser, isAdmin, canManageFleet, loadMe, logout } = useAuth();
+const { currentUser, isAdmin, canManageFleet, ensureMe, logout } = useAuth();
 
 const records = ref([]);
 const alerts = ref([]);
@@ -448,7 +448,7 @@ const removeRecord = async (m) => {
 };
 
 onMounted(async () => {
-  await loadMe();
+  await ensureMe();
   await Promise.all([loadVehicles(), loadData(1)]);
 });
 </script>

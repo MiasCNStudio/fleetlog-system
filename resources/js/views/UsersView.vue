@@ -315,7 +315,7 @@ import {
   showWarningAlert,
 } from '../utils/alerts';
 
-const { currentUser, loadMe, logout } = useAuth();
+const { currentUser, loadMe, ensureMe, logout } = useAuth();
 
 const users = ref([]);
 const loading = ref(true);
@@ -511,7 +511,7 @@ watch(
 );
 
 onMounted(async () => {
-  await loadMe();
+  await ensureMe();
   await loadUsers(1);
 });
 </script>

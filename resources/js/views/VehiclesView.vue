@@ -423,7 +423,7 @@ import { useAuth } from '../composables/useAuth';
 import { confirmDeleteDialog, showErrorAlert, showSuccessAlert } from '../utils/alerts';
 import { parseSalvadorPlate, SV_PLATE_TYPES } from '../utils/plates';
 
-const { currentUser, isAdmin, canManageFleet, loadMe, logout } = useAuth();
+const { currentUser, isAdmin, canManageFleet, ensureMe, logout } = useAuth();
 
 const vehicles = ref([]);
 const loading = ref(true);
@@ -634,7 +634,7 @@ const confirmDelete = async (v) => {
 };
 
 onMounted(async () => {
-  await loadMe();
+  await ensureMe();
   await loadVehicles(1);
 });
 </script>

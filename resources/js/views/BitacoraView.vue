@@ -698,7 +698,7 @@ import {
 } from '../utils/alerts';
 import { formatCoordinates, googleMapsUrl, hasCoordinates, wazeUrl } from '../utils/maps';
 
-const { currentUser, isAdmin, canManageFleet, loadMe, logout } = useAuth();
+const { currentUser, isAdmin, canManageFleet, ensureMe, logout } = useAuth();
 
 const bitacoras = ref([]);
 const vehicleOptions = ref([]);
@@ -1035,7 +1035,7 @@ watch(
 );
 
 onMounted(async () => {
-  await loadMe();
+  await ensureMe();
   await Promise.all([loadVehicles(), loadDrivers(), loadAssignmentOptions(), loadBitacoras(1)]);
 });
 </script>

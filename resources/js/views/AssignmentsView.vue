@@ -838,7 +838,7 @@ import { useAuth } from '../composables/useAuth';
 import { confirmDeleteDialog, showErrorAlert, showSuccessAlert } from '../utils/alerts';
 import { formatCoordinates, googleMapsUrl, hasCoordinates, wazeUrl } from '../utils/maps';
 
-const { currentUser, canManageFleet, loadMe, logout } = useAuth();
+const { currentUser, canManageFleet, ensureMe, logout } = useAuth();
 
 const assignments = ref([]);
 const vehicleOptions = ref([]);
@@ -1294,7 +1294,7 @@ const confirmDelete = async (a) => {
 };
 
 onMounted(async () => {
-  await loadMe();
+  await ensureMe();
   await Promise.all([loadVehicles(), loadDrivers(), loadAssignments(1)]);
 });
 </script>

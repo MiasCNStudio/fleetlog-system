@@ -329,7 +329,7 @@ import TableRowActions from '@/components/common/TableRowActions.vue';
 import { useAuth } from '../composables/useAuth';
 import { confirmDeleteDialog, showErrorAlert, showSuccessAlert } from '../utils/alerts';
 
-const { currentUser, isAdmin, canManageFleet, loadMe, logout } = useAuth();
+const { currentUser, isAdmin, canManageFleet, ensureMe, logout } = useAuth();
 
 const incidents = ref([]);
 const vehicleOptions = ref([]);
@@ -504,7 +504,7 @@ const confirmDelete = async (inc) => {
 };
 
 onMounted(async () => {
-  await loadMe();
+  await ensureMe();
   await Promise.all([loadVehicles(), loadIncidents(1)]);
 });
 </script>
